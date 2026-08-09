@@ -14037,17 +14037,17 @@ const Config = () => {
         ))}
       </div>
 
-      {/* Estado Firebase en tiempo real */}
+      {/* Estado del backend en tiempo real */}
       <div className="card-p">
         <div className="gline"/>
         <h3 className="sy" style={{color:'#fff',fontWeight:700,fontSize:14,marginBottom:14}}>🔌 Estado de Conexiones</h3>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
           {[
-            {l:'Firebase Auth',    ok: typeof _auth!=='undefined'&&!!_auth,     v: typeof _auth!=='undefined'&&_auth?.currentUser?_auth.currentUser.email:'Sin sesión activa'},
-            {l:'Firestore DB',     ok: typeof _db!=='undefined'&&!!_db,         v: typeof _db!=='undefined'?'Conectado':'No disponible'},
-            {l:'Firebase OK',      ok: typeof FIREBASE_OK!=='undefined'&&FIREBASE_OK, v: typeof FIREBASE_OK!=='undefined'?String(FIREBASE_OK):'false'},
+            {l:'Sesión',           ok: typeof _auth!=='undefined'&&!!_auth,     v: typeof _auth!=='undefined'&&_auth?.currentUser?_auth.currentUser.email:'Sin sesión activa'},
+            {l:'Base de datos',    ok: typeof _db!=='undefined'&&!!_db,         v: typeof _db!=='undefined'?'Conectado (MongoDB)':'No disponible'},
+            {l:'Backend',          ok: typeof FIREBASE_OK!=='undefined'&&FIREBASE_OK, v: typeof FIREBASE_OK!=='undefined'&&FIREBASE_OK?'Conectado':'Sin conexión'},
             {l:'Red / Online',     ok: navigator.onLine,                        v: navigator.onLine?'Conectado':'Sin conexión'},
-            {l:'RTDB (Chat)',       ok: typeof _rtdb!=='undefined'&&!!_rtdb,    v: typeof _rtdb!=='undefined'?'Activo':'No disponible'},
+            {l:'Chat en tiempo real', ok: typeof _rtdb!=='undefined'&&!!_rtdb,  v: typeof _rtdb!=='undefined'?'Activo':'No disponible'},
             {l:'OfflineQueue',     ok: (window.OfflineQueue?.count()||0)===0,  v: (window.OfflineQueue?.count()||0)+' elementos pendientes'},
           ].map(c=>(
             <div key={c.l} style={{padding:'10px 14px',borderRadius:8,
@@ -14063,20 +14063,14 @@ const Config = () => {
         </div>
       </div>
 
-      {/* Instrucción para reglas Firestore */}
-      <div style={{padding:'14px 16px',borderRadius:10,background:'rgba(201,168,76,.06)',border:'1px solid rgba(201,168,76,.2)'}}>
-        <p style={{fontSize:12,fontWeight:700,color:'#C9A84C',margin:'0 0 8px'}}>📋 Acción manual requerida — Reglas Firestore</p>
-        <p style={{fontSize:11,color:'#94a3b8',margin:'0 0 8px',lineHeight:1.6}}>
-          Las correcciones H5 y H5b (mínimo privilegio en servidor + protección rate limits) requieren aplicar las reglas actualizadas en Firebase Console.
-          Las reglas corregidas están documentadas en el código fuente entre las líneas 515–660.
+      {/* Info del backend — reemplaza el aviso de reglas Firestore, ya no aplica */}
+      <div style={{padding:'14px 16px',borderRadius:10,background:'rgba(74,222,128,.06)',border:'1px solid rgba(74,222,128,.2)'}}>
+        <p style={{fontSize:12,fontWeight:700,color:'#4ade80',margin:'0 0 8px'}}>✅ Permisos gestionados en el servidor</p>
+        <p style={{fontSize:11,color:'#94a3b8',margin:0,lineHeight:1.6}}>
+          Los permisos de acceso (quién puede leer, escribir o administrar usuarios) ya no se configuran en una consola externa —
+          viven directamente en el código del backend (intplanner-backend/index.js), en las funciones de autenticación y
+          las rutas de cada colección.
         </p>
-        <a href="https://console.firebase.google.com/project/intplanner-v12/firestore/rules"
-          target="_blank"
-          style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:11,fontWeight:700,
-            padding:'6px 12px',borderRadius:6,background:'rgba(201,168,76,.12)',
-            border:'1px solid rgba(201,168,76,.3)',color:'#C9A84C',textDecoration:'none'}}>
-          <Ico n="link" s={12}/>Abrir Firebase Console → Firestore Rules
-        </a>
       </div>
     </div>}
 
