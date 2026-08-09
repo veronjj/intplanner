@@ -529,6 +529,11 @@ async function main() {
   const app = express();
   const server = http.createServer(app);
 
+  // Render (y la mayoría de PaaS) ponen el servidor detrás de un proxy que
+  // agrega el header X-Forwarded-For. Sin esto, express-rate-limit lanza un
+  // error de validación de seguridad que puede tumbar el proceso completo.
+  app.set('trust proxy', 1);
+
   const origins = (process.env.CORS_ORIGINS || '*').split(',').map((s) => s.trim());
   const corsOptions = { origin: origins.includes('*') ? true : origins, credentials: true };
 
@@ -557,4 +562,14 @@ async function main() {
 main().catch((err) => {
   console.error('❌ No se pudo iniciar el servidor:', err);
   process.exit(1);
+});
+
+// Red de seguridad: sin esto, un error asíncrono no manejado en cualquier
+// parte del código (como el que causó esta caída) puede terminar el proceso
+// completo en silencio, sin que Render muestre más logs ni reinicie a tiempo.
+process.on('unhandledRejection', (reason) => {
+  console.error('⚠️ unhandledRejection (el servidor sigue corriendo):', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('⚠️ uncaughtException (el servidor sigue corriendo):', err);
 });
