@@ -13,6 +13,7 @@
 require('dotenv').config();
 
 const http = require('http');
+const path = require('path');
 const crypto = require('crypto');
 const express = require('express');
 const cors = require('cors');
@@ -250,7 +251,7 @@ function buildAuthRouter(io) {
 // RUTAS: COLECCIONES GENÉRICAS  (reemplaza Firestore .collection().doc())
 // =======================================================================
 
-const PUBLIC_COLLECTIONS = new Set(['qr_tokens']);
+const PUBLIC_COLLECTIONS = new Set(['qr_tokens', 'ip_rate_limits', 'ip_pwd_requests']);
 
 function buildCollectionsRouter(io) {
   const router = express.Router();
@@ -544,6 +545,11 @@ async function main() {
   setupSockets(io);
 
   app.get('/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
+
+  // Sirve la app INTPLANNER PRO directo en la raíz (https://intplanner.onrender.com)
+  // — así todo el equipo entra por una sola URL y siempre ve la última versión
+  // publicada, en vez de abrir copias del .html descargadas en cada computador.
+  app.use(express.static(path.join(__dirname, 'public')));
 
   app.use('/api/auth', buildAuthRouter(io));
   app.use('/api/collections', buildCollectionsRouter(io));
