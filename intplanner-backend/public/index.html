@@ -1537,7 +1537,15 @@ const DB = {
           return winner;
         });
         // Documentos solo en localStorage (writes pendientes no llegaron a Firestore aún)
-        localArr.filter(d=>!fsIds.has(d.id)).forEach(d=>merged.push(d));
+        // Documentos solo en localStorage: pueden ser (a) escrituras pendientes
+        // que aún no llegaron al servidor, o (b) documentos que SÍ se subieron
+        // y luego se eliminaron en otro equipo. Antes se asumía siempre (a),
+        // lo que hacía que las eliminaciones remotas nunca se reflejaran.
+        // Ahora: solo se conservan como "pendientes" si son recientes (<15s);
+        // pasado ese margen, se asumen eliminados de verdad y se descartan.
+        const AHORA = Date.now();
+        const MARGEN_PENDIENTE_MS = 15000;
+        localArr.filter(d=>!fsIds.has(d.id) && (AHORA - (d._ts||0) < MARGEN_PENDIENTE_MS)).forEach(d=>merged.push(d));
 
         // LOGO-FIX: Guardar versión sin logos embebidos para evitar QuotaExceededError
         const mergedCompact = merged.map(d =>
