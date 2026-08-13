@@ -838,6 +838,493 @@ textarea.inp{resize:vertical;min-height:80px}
 /* Interactividad */
 .select-none{user-select:none}
 .pointer-events-none{pointer-events:none}
+
+/* ═══════════════════════════════════════════════════════════════
+   DASHBOARD PREMIUM — Alto relieve + destellos dorados
+   Solo afecta componentes dentro de .dash-premium
+   ═══════════════════════════════════════════════════════════════ */
+.dash-premium{font-family:'Century Gothic','Segoe UI',sans-serif}
+.dash-premium .sy{font-family:'Century Gothic','Segoe UI',sans-serif!important}
+
+/* ── KPI Cards — PREMIUM V2: Biseles dorados 3D + shimmer + glow plateado ── */
+@keyframes kpiShimmer{
+  0%{transform:translateX(-100%) rotate(25deg)}
+  100%{transform:translateX(200%) rotate(25deg)}
+}
+@keyframes kpiBorderPulse{
+  0%,100%{opacity:.7}
+  50%{opacity:1}
+}
+.dash-premium .kpi-premium{
+  position:relative;
+  background:linear-gradient(165deg,#1a2e47 0%,#132238 35%,#0e1a2b 70%,#0b1520 100%);
+  border:none;
+  border-radius:14px;
+  padding:18px 20px 16px;
+  overflow:hidden;
+  cursor:default;
+  transition:all .4s cubic-bezier(.4,0,.2,1);
+  /* Alto relieve 3D — 5 capas de sombra */
+  box-shadow:
+    0 1px 2px rgba(0,0,0,.5),
+    0 4px 8px rgba(0,0,0,.35),
+    0 8px 20px rgba(0,0,0,.25),
+    0 16px 40px rgba(0,0,0,.12),
+    inset 0 1px 0 rgba(255,255,255,.06),
+    inset 0 -1px 0 rgba(0,0,0,.3);
+}
+
+/* ── Bisel dorado en 3 lados (top, left, bottom) — borde luminoso ── */
+.dash-premium .kpi-premium::before{
+  content:'';position:absolute;inset:0;border-radius:14px;padding:1.2px;
+  background:linear-gradient(
+    185deg,
+    rgba(218,187,103,.85) 0%,
+    rgba(201,168,76,.6) 8%,
+    rgba(201,168,76,.2) 25%,
+    rgba(201,168,76,.05) 45%,
+    rgba(201,168,76,.05) 55%,
+    rgba(201,168,76,.2) 75%,
+    rgba(201,168,76,.55) 92%,
+    rgba(218,187,103,.75) 100%
+  );
+  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;
+  pointer-events:none;
+  animation:kpiBorderPulse 4s ease-in-out infinite;
+}
+
+/* ── Lado derecho sin bisel (borde oscuro) ── */
+.dash-premium .kpi-premium::after{
+  content:'';position:absolute;top:3px;right:-1px;bottom:3px;width:4px;
+  background:linear-gradient(180deg,#0e1a2b,#0b1520,#0e1a2b);
+  z-index:4;border-radius:0 2px 2px 0;
+}
+
+/* ── Destello shimmer diagonal (sutil, solo en reposo) ── */
+.dash-premium .kpi-shimmer{
+  position:absolute;top:-50%;left:0;width:40%;height:200%;
+  background:linear-gradient(105deg,transparent 40%,rgba(218,187,103,.04) 45%,rgba(255,255,255,.06) 50%,rgba(218,187,103,.04) 55%,transparent 60%);
+  transform:translateX(-100%) rotate(25deg);
+  animation:kpiShimmer 6s ease-in-out infinite;
+  animation-delay:var(--shimmer-delay,0s);
+  pointer-events:none;z-index:2;
+}
+
+/* ── Glow plateado en hover — envolvente con brillo externo ── */
+.dash-premium .kpi-premium:hover{
+  transform:translateY(-3px) scale(1.01);
+  box-shadow:
+    0 1px 2px rgba(0,0,0,.4),
+    0 4px 12px rgba(0,0,0,.3),
+    0 12px 32px rgba(0,0,0,.18),
+    0 0 30px rgba(192,210,230,.06),
+    0 0 60px rgba(192,210,230,.04),
+    inset 0 1px 0 rgba(255,255,255,.1),
+    inset 0 -1px 0 rgba(0,0,0,.2);
+}
+.dash-premium .kpi-premium:hover .kpi-bg-glow{opacity:1}
+.dash-premium .kpi-premium:hover .kpi-shimmer{animation-play-state:paused;opacity:.6}
+.dash-premium .kpi-premium:hover::before{animation-play-state:paused;opacity:1}
+
+/* ── Glow interno plateado (visible solo en hover) ── */
+.dash-premium .kpi-bg-glow{
+  position:absolute;inset:0;border-radius:14px;
+  background:
+    radial-gradient(ellipse 90% 70% at 30% 20%,rgba(210,222,240,.09) 0%,transparent 60%),
+    radial-gradient(ellipse 60% 80% at 80% 80%,rgba(192,206,224,.05) 0%,transparent 50%);
+  opacity:0;transition:opacity .5s ease;pointer-events:none;z-index:2;
+}
+
+/* ── Reflejo superior (bisel de luz) ── */
+.dash-premium .kpi-highlight{
+  position:absolute;top:0;left:0;right:0;height:45%;
+  background:linear-gradient(180deg,rgba(255,255,255,.03) 0%,transparent 100%);
+  border-radius:14px 14px 0 0;pointer-events:none;z-index:2;
+}
+
+.dash-premium .kpi-content{position:relative;z-index:5}
+
+/* ── Fila superior más compacta ── */
+.dash-premium .kpi-row-top .kpi-premium{padding:14px 16px 12px}
+.dash-premium .kpi-row-top .kpi-val{font-size:20px}
+.dash-premium .kpi-row-top .kpi-label{font-size:10px;letter-spacing:.4px}
+.dash-premium .kpi-row-top .kpi-ico-box{width:28px;height:28px;border-radius:7px}
+.dash-premium .kpi-row-top .kpi-ico-box svg{width:13px;height:13px}
+
+/* ── Tipografía KPI ── */
+.dash-premium .kpi-val{
+  font-family:'Century Gothic','Segoe UI',sans-serif;
+  font-size:24px;font-weight:700;color:#fff;line-height:1.05;letter-spacing:-.4px;
+  text-shadow:0 1px 3px rgba(0,0,0,.3);
+}
+.dash-premium .kpi-label{
+  font-family:'Century Gothic','Segoe UI',sans-serif;
+  font-size:11px;color:#6b809a;margin-top:4px;letter-spacing:.3px;font-weight:500;
+  text-transform:uppercase;
+}
+.dash-premium .kpi-ico-box{
+  width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;
+  transition:all .35s ease;
+}
+.dash-premium .kpi-premium:hover .kpi-ico-box{
+  box-shadow:0 0 12px var(--kpi-accent,rgba(96,165,250,.2));
+  transform:scale(1.05);
+}
+
+/* ── Cards de secciones ── */
+.dash-premium .dash-card{
+  position:relative;background:linear-gradient(168deg,#18263a 0%,#111d2e 60%,#0e1825 100%);
+  border:1px solid rgba(36,52,71,.7);border-radius:14px;padding:22px;overflow:hidden;
+  box-shadow:0 2px 6px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.15),inset 0 1px 0 rgba(255,255,255,.03);
+}
+.dash-premium .dash-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,#C9A84C 0%,rgba(201,168,76,.3) 60%,transparent 100%);
+  border-radius:14px 14px 0 0;
+}
+.dash-premium .dash-section-title{
+  font-family:'Century Gothic','Segoe UI',sans-serif;color:#e8ecf1;font-weight:700;
+  font-size:14px;margin:0 0 16px;display:flex;align-items:center;gap:9px;letter-spacing:.15px;
+}
+.dash-premium .dash-task-item{
+  display:flex;align-items:center;justify-content:space-between;padding:10px 12px;
+  background:linear-gradient(135deg,#0f1923 0%,#121e2d 100%);border-radius:10px;
+  border:1px solid rgba(36,52,71,.6);margin-bottom:6px;transition:all .25s ease;
+}
+.dash-premium .dash-task-item:hover{
+  border-color:rgba(201,168,76,.25);background:linear-gradient(135deg,#121e2d 0%,#162030 100%);
+}
+.dash-premium .dash-pbar{
+  height:7px;background:rgba(30,45,66,.8);border-radius:4px;overflow:hidden;
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.3);
+}
+.dash-premium .dash-pfill{
+  height:100%;border-radius:4px;transition:width .7s cubic-bezier(.4,0,.2,1);
+  box-shadow:0 0 6px currentColor;
+}
+.dash-premium .dash-client-card{
+  background:linear-gradient(135deg,#0f1923 0%,#121e2d 100%);border-radius:12px;
+  border:1px solid rgba(36,52,71,.6);padding:16px;transition:all .3s ease;
+}
+.dash-premium .dash-client-card:hover{
+  border-color:rgba(201,168,76,.3);box-shadow:0 4px 16px rgba(0,0,0,.2);transform:translateY(-1px);
+}
+.dash-premium .dash-chart-summary{
+  flex:1 1 110px;padding:10px 12px;border-radius:10px;
+  background:linear-gradient(135deg,#0f1923 0%,#121e2d 100%);
+  border:1px solid rgba(36,52,71,.6);text-align:center;transition:all .25s ease;
+}
+.dash-premium .dash-chart-summary:hover{border-color:rgba(201,168,76,.2)}
+.dash-premium .dash-ver-mas{
+  display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:14px;
+  padding:10px 0;border-radius:10px;border:1px solid rgba(201,168,76,.25);
+  background:linear-gradient(135deg,rgba(201,168,76,.06) 0%,rgba(201,168,76,.02) 100%);
+  color:#C9A84C;font-family:'Century Gothic','Segoe UI',sans-serif;font-size:12.5px;
+  font-weight:600;cursor:pointer;transition:all .3s ease;letter-spacing:.3px;
+}
+.dash-premium .dash-ver-mas:hover{
+  background:linear-gradient(135deg,rgba(201,168,76,.12) 0%,rgba(201,168,76,.05) 100%);
+  border-color:rgba(201,168,76,.45);box-shadow:0 2px 12px rgba(201,168,76,.1);
+}
+@media(max-width:640px){
+  .dash-premium .kpi-premium{padding:12px 14px}
+  .dash-premium .kpi-val{font-size:18px}
+  .dash-premium .dash-card{padding:16px}
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LOGIN PREMIUM — Fondo animado tecnológico + Card corporativa
+   ═══════════════════════════════════════════════════════════════ */
+@keyframes loginGridMove{
+  0%{transform:translate(0,0)}
+  100%{transform:translate(60px,60px)}
+}
+@keyframes loginOrb1{
+  0%,100%{transform:translate(0,0) scale(1);opacity:.3}
+  33%{transform:translate(60px,-50px) scale(1.15);opacity:.45}
+  66%{transform:translate(-30px,30px) scale(.9);opacity:.25}
+}
+@keyframes loginOrb2{
+  0%,100%{transform:translate(0,0) scale(1);opacity:.2}
+  50%{transform:translate(-50px,40px) scale(1.1);opacity:.35}
+}
+@keyframes loginOrb3{
+  0%,100%{transform:translate(0,0) scale(.9);opacity:.15}
+  40%{transform:translate(40px,50px) scale(1.05);opacity:.25}
+  80%{transform:translate(-20px,-40px) scale(1);opacity:.18}
+}
+@keyframes loginPulseRing{
+  0%{transform:scale(.85);opacity:.2}
+  50%{transform:scale(1.08);opacity:.06}
+  100%{transform:scale(.85);opacity:.2}
+}
+@keyframes loginParticle{
+  0%{transform:translateY(0);opacity:0}
+  10%{opacity:.5}
+  90%{opacity:.5}
+  100%{transform:translateY(-100vh);opacity:0}
+}
+@keyframes loginCardIn{
+  0%{opacity:0;transform:translateY(20px) scale(.97)}
+  100%{opacity:1;transform:translateY(0) scale(1)}
+}
+@keyframes loginShimmer{
+  0%{transform:translateX(-100%) rotate(15deg)}
+  100%{transform:translateX(300%) rotate(15deg)}
+}
+/* ── Nuevas animaciones corporativas ── */
+@keyframes loginDataFlow{
+  0%{stroke-dashoffset:200}
+  100%{stroke-dashoffset:0}
+}
+@keyframes loginFloatSlow{
+  0%,100%{transform:translateY(0) rotate(var(--r,0deg));opacity:var(--o,.08)}
+  50%{transform:translateY(var(--dy,-15px)) rotate(calc(var(--r,0deg) + 5deg));opacity:calc(var(--o,.08) + .03)}
+}
+@keyframes loginBarGrow{
+  0%,100%{transform:scaleY(.5);opacity:.06}
+  50%{transform:scaleY(1);opacity:.12}
+}
+@keyframes loginScanLine{
+  0%{top:-2px;opacity:0}
+  5%{opacity:.4}
+  95%{opacity:.4}
+  100%{top:100%;opacity:0}
+}
+@keyframes loginNodePulse{
+  0%,100%{r:2;opacity:.3}
+  50%{r:3.5;opacity:.6}
+}
+@keyframes loginConnectDash{
+  0%{stroke-dashoffset:80}
+  100%{stroke-dashoffset:0}
+}
+
+.login-premium{
+  position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:#070d14;overflow:hidden;font-family:'Century Gothic','Segoe UI',sans-serif;
+}
+/* Grid de fondo animada */
+.login-bg-grid{
+  position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(201,168,76,.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(201,168,76,.03) 1px,transparent 1px);
+  background-size:60px 60px;
+  animation:loginGridMove 25s linear infinite;
+  mask-image:radial-gradient(ellipse 75% 65% at 50% 50%,#000 25%,transparent 75%);
+  -webkit-mask-image:radial-gradient(ellipse 75% 65% at 50% 50%,#000 25%,transparent 75%);
+}
+/* Orbes flotantes */
+.login-orb{position:absolute;border-radius:50%;filter:blur(90px);pointer-events:none}
+.login-orb-1{width:420px;height:420px;top:8%;left:3%;background:rgba(30,58,95,.45);animation:loginOrb1 20s ease-in-out infinite}
+.login-orb-2{width:360px;height:360px;bottom:8%;right:3%;background:rgba(201,168,76,.1);animation:loginOrb2 24s ease-in-out infinite}
+.login-orb-3{width:300px;height:300px;top:45%;left:55%;background:rgba(96,165,250,.08);animation:loginOrb3 18s ease-in-out infinite}
+/* Anillos pulsantes */
+.login-ring{position:absolute;border-radius:50%;border:1px solid rgba(201,168,76,.06);pointer-events:none}
+.login-ring-1{width:500px;height:500px;top:50%;left:50%;margin:-250px 0 0 -250px;animation:loginPulseRing 9s ease-in-out infinite}
+.login-ring-2{width:720px;height:720px;top:50%;left:50%;margin:-360px 0 0 -360px;animation:loginPulseRing 13s ease-in-out infinite;animation-delay:2s}
+.login-ring-3{width:940px;height:940px;top:50%;left:50%;margin:-470px 0 0 -470px;animation:loginPulseRing 17s ease-in-out infinite;animation-delay:4s}
+/* Partículas ascendentes */
+.login-particles{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.login-particle{
+  position:absolute;width:2px;height:2px;border-radius:50%;background:#C9A84C;
+  animation:loginParticle var(--dur,12s) linear infinite;
+  animation-delay:var(--delay,0s);
+  left:var(--x,50%);bottom:-10px;opacity:0;
+}
+/* ── ELEMENTOS CORPORATIVOS FLOTANTES ── */
+.login-corp-layer{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+/* Símbolos SVG flotantes */
+.login-float-symbol{
+  position:absolute;opacity:var(--o,.07);
+  animation:loginFloatSlow var(--dur,14s) ease-in-out infinite;
+  animation-delay:var(--delay,0s);
+}
+/* Mini gráficos de barras flotantes */
+.login-float-chart{position:absolute;opacity:.06}
+.login-float-chart rect{
+  transform-origin:bottom center;
+  animation:loginBarGrow var(--dur,4s) ease-in-out infinite;
+  animation-delay:var(--delay,0s);
+}
+/* Línea de escaneo */
+.login-scan-line{
+  position:absolute;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(201,168,76,.15),rgba(201,168,76,.06),transparent);
+  animation:loginScanLine 12s linear infinite;
+  pointer-events:none;
+}
+/* Red de nodos conectados */
+.login-network{position:absolute;pointer-events:none;opacity:.12}
+.login-network circle{animation:loginNodePulse 3s ease-in-out infinite}
+.login-network line{stroke-dasharray:8 4;animation:loginConnectDash 6s linear infinite}
+/* Card de login */
+.login-card{
+  position:relative;z-index:10;width:100%;max-width:420px;margin:0 16px;padding:40px 36px 32px;
+  background:linear-gradient(165deg,rgba(24,38,58,.92),rgba(17,30,46,.95),rgba(11,21,32,.97));
+  border:1px solid rgba(201,168,76,.15);border-radius:20px;
+  box-shadow:0 4px 12px rgba(0,0,0,.5),0 16px 48px rgba(0,0,0,.4),0 32px 80px rgba(0,0,0,.25),
+    inset 0 1px 0 rgba(255,255,255,.04);
+  animation:loginCardIn .6s cubic-bezier(.4,0,.2,1) both;
+  overflow:hidden;
+}
+.login-card::before{
+  content:'';position:absolute;inset:0;border-radius:20px;padding:1px;
+  background:linear-gradient(180deg,rgba(201,168,76,.4) 0%,rgba(201,168,76,.08) 40%,rgba(201,168,76,.08) 60%,rgba(201,168,76,.25) 100%);
+  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;
+}
+.login-card::after{
+  content:'';position:absolute;top:-50%;left:0;width:40%;height:200%;
+  background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,.03) 48%,rgba(218,187,103,.04) 50%,rgba(255,255,255,.03) 52%,transparent 60%);
+  transform:translateX(-100%) rotate(15deg);animation:loginShimmer 8s ease-in-out infinite;
+  pointer-events:none;
+}
+/* Card highlight superior */
+.login-card-highlight{
+  position:absolute;top:0;left:0;right:0;height:50%;
+  background:linear-gradient(180deg,rgba(255,255,255,.02) 0%,transparent 100%);
+  border-radius:20px 20px 0 0;pointer-events:none;z-index:0;
+}
+/* Inputs del login */
+.login-premium .inp{
+  background:rgba(15,25,35,.8)!important;border:1px solid rgba(36,52,71,.8)!important;
+  border-radius:10px!important;padding:12px 14px!important;font-size:13.5px!important;
+  color:#e2e8f0!important;font-family:'Century Gothic','Segoe UI',sans-serif!important;
+  transition:all .3s ease!important;
+}
+.login-premium .inp:focus{
+  border-color:rgba(201,168,76,.5)!important;
+  box-shadow:0 0 0 3px rgba(201,168,76,.08),0 2px 8px rgba(0,0,0,.3)!important;
+}
+.login-premium .inp::placeholder{color:#3e5068!important;font-size:13px!important}
+/* Botón principal */
+.login-premium .login-btn{
+  width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:13px;
+  border-radius:12px;border:none;cursor:pointer;font-weight:700;font-size:13.5px;
+  font-family:'Century Gothic','Segoe UI',sans-serif;letter-spacing:.3px;
+  background:linear-gradient(135deg,#1E3A5F 0%,#234a75 50%,#1E3A5F 100%);
+  color:#fff;position:relative;overflow:hidden;
+  box-shadow:0 2px 8px rgba(30,58,95,.4),0 8px 24px rgba(0,0,0,.3),
+    inset 0 1px 0 rgba(255,255,255,.08);
+  transition:all .35s ease;
+}
+.login-premium .login-btn:hover:not(:disabled){
+  box-shadow:0 2px 8px rgba(30,58,95,.5),0 12px 32px rgba(0,0,0,.35),
+    0 0 20px rgba(201,168,76,.1),inset 0 1px 0 rgba(255,255,255,.12);
+  transform:translateY(-1px);
+}
+.login-premium .login-btn:disabled{opacity:.6;cursor:not-allowed}
+.login-premium .login-btn::after{
+  content:'';position:absolute;top:0;left:0;right:0;height:50%;
+  background:linear-gradient(180deg,rgba(255,255,255,.06) 0%,transparent 100%);
+  border-radius:12px 12px 0 0;pointer-events:none;
+}
+/* Footer links */
+.login-premium .login-footer{color:#3e5068;font-size:12px;font-family:'Century Gothic',sans-serif}
+.login-premium .login-footer:hover{color:#C9A84C}
+@media(max-width:480px){
+  .login-card{padding:28px 22px 24px;margin:0 12px;max-width:380px;border-radius:16px}
+}
+
+/* ── LOGIN LOGO ORBITAL PREMIUM ────────────────────────────── */
+@keyframes logoOrbitCW{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+@keyframes logoOrbitCCW{0%{transform:rotate(0deg)}100%{transform:rotate(-360deg)}}
+@keyframes logoPulseCore{0%,100%{box-shadow:0 0 20px rgba(201,168,76,.1),0 0 40px rgba(30,58,95,.2)}50%{box-shadow:0 0 30px rgba(201,168,76,.18),0 0 60px rgba(30,58,95,.3)}}
+@keyframes logoDotGlow{0%,100%{filter:blur(0px);opacity:.9}50%{filter:blur(1px);opacity:1}}
+@keyframes logoRingPulse{0%,100%{opacity:.15;transform:scale(1)}50%{opacity:.3;transform:scale(1.03)}}
+
+.login-logo-wrap{
+  position:relative;width:130px;height:130px;margin:0 auto 20px;
+}
+/* Anillo exterior decorativo */
+.login-logo-ring-outer{
+  position:absolute;inset:-8px;border-radius:50%;
+  border:1px solid rgba(201,168,76,.1);
+  animation:logoRingPulse 4s ease-in-out infinite;
+}
+.login-logo-ring-outer::before{
+  content:'';position:absolute;inset:-6px;border-radius:50%;
+  border:1px solid rgba(192,210,230,.05);
+  animation:logoRingPulse 6s ease-in-out infinite;animation-delay:1s;
+}
+/* Órbita dorada (sentido horario) */
+.login-orbit-cw{
+  position:absolute;inset:-4px;border-radius:50%;
+  animation:logoOrbitCW 4s linear infinite;
+}
+.login-orbit-cw .login-dot{
+  position:absolute;top:-4px;left:50%;margin-left:-4px;
+  width:8px;height:8px;border-radius:50%;
+  background:radial-gradient(circle at 30% 30%,#f0d78c,#C9A84C,#a8862e);
+  box-shadow:0 0 8px rgba(201,168,76,.7),0 0 20px rgba(201,168,76,.3),0 0 40px rgba(201,168,76,.1);
+  animation:logoDotGlow 2s ease-in-out infinite;
+}
+/* Estela dorada */
+.login-orbit-cw .login-trail{
+  position:absolute;top:-2px;left:50%;margin-left:2px;
+  width:20px;height:4px;border-radius:2px;
+  background:linear-gradient(90deg,rgba(201,168,76,.4),transparent);
+  transform-origin:left center;transform:rotate(8deg);
+  filter:blur(1px);
+}
+/* Órbita plateada (sentido antihorario) */
+.login-orbit-ccw{
+  position:absolute;inset:-4px;border-radius:50%;
+  animation:logoOrbitCCW 5.5s linear infinite;
+}
+.login-orbit-ccw .login-dot{
+  position:absolute;bottom:-4px;left:50%;margin-left:-4px;
+  width:7px;height:7px;border-radius:50%;
+  background:radial-gradient(circle at 30% 30%,#e8edf3,#b0bec5,#78909c);
+  box-shadow:0 0 8px rgba(192,210,230,.6),0 0 18px rgba(192,210,230,.25),0 0 36px rgba(192,210,230,.08);
+  animation:logoDotGlow 2.5s ease-in-out infinite;animation-delay:.5s;
+}
+/* Estela plateada */
+.login-orbit-ccw .login-trail{
+  position:absolute;bottom:-1px;left:50%;margin-left:-12px;
+  width:18px;height:3px;border-radius:2px;
+  background:linear-gradient(270deg,rgba(192,210,230,.35),transparent);
+  transform-origin:right center;transform:rotate(-8deg);
+  filter:blur(1px);
+}
+/* Núcleo central del logo */
+.login-logo-core{
+  position:absolute;inset:12px;border-radius:50%;
+  background:linear-gradient(155deg,#1a3358 0%,#132744 40%,#0e1d33 100%);
+  border:1.5px solid rgba(201,168,76,.2);
+  display:flex;align-items:center;justify-content:center;
+  animation:logoPulseCore 5s ease-in-out infinite;
+  overflow:hidden;z-index:2;
+}
+/* Reflejo superior en el núcleo */
+.login-logo-core::before{
+  content:'';position:absolute;top:0;left:10%;right:10%;height:45%;
+  background:linear-gradient(180deg,rgba(255,255,255,.07) 0%,transparent 100%);
+  border-radius:50% 50% 40% 40%;
+}
+/* Arco dorado inferior decorativo */
+.login-logo-core::after{
+  content:'';position:absolute;bottom:0;left:15%;right:15%;height:2px;
+  background:linear-gradient(90deg,transparent,rgba(201,168,76,.3),transparent);
+  border-radius:1px;
+}
+/* Logo con cfg.logo (imagen) — versión circular */
+.login-logo-img{
+  width:80%;height:80%;object-fit:contain;border-radius:50%;
+  position:relative;z-index:1;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.3));
+}
+/* Logo texto IP fallback */
+.login-logo-text{
+  font-size:30px;font-weight:800;color:#fff;
+  font-family:'Century Gothic','Segoe UI',sans-serif;
+  position:relative;z-index:1;
+  text-shadow:0 2px 6px rgba(0,0,0,.4),0 0 20px rgba(201,168,76,.08);
+  letter-spacing:-1px;
+}
 </style>
 </head>
 <body>
@@ -2160,12 +2647,39 @@ const SBadge = ({s}) => {
 };
 
 const KPI = ({label,val,sub,ico,color='blue'}) => {
-  const bg = {blue:'from-blue-900/30 to-brand/20 border-blue-800/30 text-blue-400',gold:'from-yellow-900/20 to-gold/10 border-yellow-800/30 text-gold',green:'from-green-900/20 border-green-800/30 text-green-400',red:'from-red-900/20 border-red-800/30 text-red-400'};
-  return <div className={clx('kpi bg-gradient-to-br',bg[color]||bg.blue)}>
-    <div className="text-current opacity-70 mb-2"><Ico n={ico} s={18}/></div>
-    <div className="sy text-xl font-bold text-white leading-tight">{val}</div>
-    <div className="text-xs text-slate-400 mt-0.5">{label}</div>
-    {sub&&<div className="text-xs text-slate-500 mt-0.5">{sub}</div>}
+  const palette = {
+    blue:  {accent:'#60a5fa',bg:'rgba(96,165,250,',glow:'rgba(96,165,250,.2)'},
+    gold:  {accent:'#C9A84C',bg:'rgba(201,168,76,',glow:'rgba(201,168,76,.2)'},
+    green: {accent:'#4ade80',bg:'rgba(74,222,128,',glow:'rgba(74,222,128,.2)'},
+    red:   {accent:'#f87171',bg:'rgba(248,113,113,',glow:'rgba(248,113,113,.2)'},
+  };
+  const p = palette[color]||palette.blue;
+  const delays = {blue:'0s',gold:'1.5s',green:'3s',red:'4.5s'};
+  return <div className="kpi-premium" style={{'--kpi-accent':p.glow,'--shimmer-delay':delays[color]||'0s'}}>
+    <div className="kpi-bg-glow"/>
+    <div className="kpi-highlight"/>
+    <div className="kpi-shimmer"/>
+    {/* Línea de acento dorada superior */}
+    <div style={{position:'absolute',top:0,left:12,width:40,height:2,
+      background:`linear-gradient(90deg,${p.accent},transparent)`,borderRadius:'0 0 3px 3px',zIndex:5,opacity:.7}}/>
+    {/* Punto de acento esquina inferior izquierda */}
+    <div style={{position:'absolute',bottom:8,left:8,width:3,height:3,borderRadius:'50%',
+      background:p.accent,opacity:.4,zIndex:5,boxShadow:`0 0 6px ${p.accent}44`}}/>
+    <div className="kpi-content">
+      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:10}}>
+        <div className="kpi-ico-box" style={{
+          background:`linear-gradient(145deg,${p.bg}.12),${p.bg}.04))`,
+          border:`1px solid ${p.bg}.18)`,
+          boxShadow:`0 2px 8px ${p.bg}.08), inset 0 1px 0 rgba(255,255,255,.04)`}}>
+          <Ico n={ico} s={15} c={p.accent}/>
+        </div>
+        <div style={{width:1,height:18,background:'linear-gradient(180deg,rgba(201,168,76,.3),transparent)',
+          borderRadius:1,marginTop:4,opacity:.5}}/>
+      </div>
+      <div className="kpi-val">{val}</div>
+      <div className="kpi-label">{label}</div>
+      {sub&&<div style={{fontSize:9.5,color:'#4d6480',marginTop:3,fontFamily:'Century Gothic,sans-serif',letterSpacing:'.2px'}}>{sub}</div>}
+    </div>
   </div>;
 };
 
@@ -2362,21 +2876,140 @@ const Login = ({onLogin}) => {
     }
   };
 
-  return <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'radial-gradient(ellipse at 20% 50%,rgba(30,58,95,.5) 0%,#0f1923 60%),radial-gradient(ellipse at 80% 20%,rgba(201,168,76,.08) 0%,transparent 50%)'}}>
-    <div className="card" style={{width:'100%',maxWidth:420,margin:'0 16px',padding:36,boxShadow:'0 32px 80px rgba(0,0,0,.6)'}}>
-      {/* Logo */}
+  return <div className="login-premium">
+    {/* ── Fondo animado tecnológico corporativo ── */}
+    <div className="login-bg-grid"/>
+    <div className="login-orb login-orb-1"/>
+    <div className="login-orb login-orb-2"/>
+    <div className="login-orb login-orb-3"/>
+    <div className="login-ring login-ring-1"/>
+    <div className="login-ring login-ring-2"/>
+    <div className="login-ring login-ring-3"/>
+
+    {/* Capa corporativa — gráficos, símbolos, redes */}
+    <div className="login-corp-layer">
+      {/* Línea de escaneo horizontal */}
+      <div className="login-scan-line"/>
+
+      {/* Mini gráficos de barras flotantes */}
+      {[{x:'8%',y:'20%',r:-8,d:5},{x:'85%',y:'15%',r:5,d:6},{x:'12%',y:'72%',r:-3,d:4.5},{x:'78%',y:'78%',r:6,d:5.5},{x:'45%',y:'10%',r:-5,d:7}].map((g,i)=>(
+        <svg key={'bc'+i} className="login-float-chart" width="36" height="28" style={{left:g.x,top:g.y,transform:`rotate(${g.r}deg)`}}>
+          {[0,1,2,3,4].map(j=>{const h=6+Math.random()*18;return(
+            <rect key={j} x={j*7+1} y={28-h} width="5" height={h} rx="1" fill="#C9A84C" style={{'--dur':g.d+'s','--delay':(j*.4)+'s'}}/>
+          )})}
+        </svg>
+      ))}
+
+      {/* Gráficos de línea (sparklines) flotantes */}
+      {[{x:'6%',y:'45%',r:3},{x:'88%',y:'50%',r:-4},{x:'70%',y:'12%',r:2},{x:'25%',y:'85%',r:-6}].map((g,i)=>{
+        const pts=Array.from({length:8},(_,j)=>`${j*8},${18-Math.random()*14}`).join(' ');
+        return <svg key={'sp'+i} className="login-float-symbol" width="56" height="22" style={{left:g.x,top:g.y,'--r':g.r+'deg','--o':'.06','--dur':(12+i*3)+'s','--delay':(i*2)+'s'}}>
+          <polyline points={pts} fill="none" stroke="#60a5fa" strokeWidth="1.2" strokeLinecap="round" strokeDasharray="4 3" style={{animation:'loginConnectDash 8s linear infinite'}}/>
+        </svg>;
+      })}
+
+      {/* Gráficos circulares (donuts) */}
+      {[{x:'15%',y:'30%',c:'#C9A84C',pct:72},{x:'82%',y:'35%',c:'#60a5fa',pct:58},{x:'20%',y:'88%',c:'#4ade80',pct:85}].map((d,i)=>{
+        const r=12;const circ=2*Math.PI*r;const off=circ*(1-d.pct/100);
+        return <svg key={'dn'+i} className="login-float-symbol" width="32" height="32" style={{left:d.x,top:d.y,'--o':'.07','--dur':(16+i*2)+'s','--delay':(i*1.5)+'s','--dy':'-12px'}}>
+          <circle cx="16" cy="16" r={r} fill="none" stroke="rgba(255,255,255,.05)" strokeWidth="3"/>
+          <circle cx="16" cy="16" r={r} fill="none" stroke={d.c} strokeWidth="3" strokeDasharray={circ} strokeDashoffset={off}
+            strokeLinecap="round" transform="rotate(-90 16 16)" opacity=".5"/>
+        </svg>;
+      })}
+
+      {/* Símbolos corporativos SVG flotantes */}
+      {[
+        {x:'5%', y:'55%',d:'M3 3v18h18',ico:'chart',c:'#C9A84C'},
+        {x:'92%',y:'60%',d:'M12 2L2 7l10 5 10-5M2 17l10 5 10-5M2 12l10 5 10-5',ico:'layers',c:'#60a5fa'},
+        {x:'50%',y:'5%', d:'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6M15 19v-4a2 2 0 012-2h2a2 2 0 012 2v4M3 19h18',ico:'building',c:'#94a3b8'},
+        {x:'35%',y:'90%',d:'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',ico:'shield',c:'#C9A84C'},
+        {x:'65%',y:'88%',d:'M22 12h-4l-3 9L9 3l-3 9H2',ico:'pulse',c:'#4ade80'},
+        {x:'93%',y:'25%',d:'M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z',ico:'hex',c:'#60a5fa'},
+        {x:'3%', y:'85%',d:'M12 20V10M18 20V4M6 20v-4',ico:'bars',c:'#94a3b8'},
+        {x:'48%',y:'92%',d:'M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-4 0v7H6v-7a6 6 0 016-6z',ico:'connect',c:'#C9A84C'},
+      ].map((s,i)=>(
+        <svg key={'sym'+i} className="login-float-symbol" viewBox="0 0 24 24" width="22" height="22"
+          style={{left:s.x,top:s.y,'--o':'.06','--dur':(13+i*1.7)+'s','--delay':(i*1.2)+'s','--r':(i%2===0?3:-3)+'deg','--dy':(-10-i*2)+'px'}}>
+          <path d={s.d} fill="none" stroke={s.c} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      ))}
+
+      {/* Red de nodos conectados — esquina inferior izquierda */}
+      <svg className="login-network" width="180" height="140" style={{left:'2%',bottom:'5%'}}>
+        {[[20,30],[60,15],[100,40],[50,70],[90,90],[140,60],[130,20],[160,100]].map((p,i)=>(
+          <circle key={'n'+i} cx={p[0]} cy={p[1]} r="2.5" fill="#C9A84C" style={{animationDelay:(i*.4)+'s'}}/>
+        ))}
+        {[[0,1],[1,2],[0,3],[3,4],[2,5],[5,6],[4,5],[6,7],[4,7]].map(([a,b],i)=>{
+          const pts=[[20,30],[60,15],[100,40],[50,70],[90,90],[140,60],[130,20],[160,100]];
+          return <line key={'l'+i} x1={pts[a][0]} y1={pts[a][1]} x2={pts[b][0]} y2={pts[b][1]}
+            stroke="#C9A84C" strokeWidth=".8" style={{animationDelay:(i*.3)+'s'}}/>;
+        })}
+      </svg>
+
+      {/* Red de nodos — esquina superior derecha */}
+      <svg className="login-network" width="160" height="120" style={{right:'3%',top:'8%',opacity:'.08'}}>
+        {[[15,25],[55,10],[95,35],[45,60],[85,80],[135,50],[125,15]].map((p,i)=>(
+          <circle key={'nr'+i} cx={p[0]} cy={p[1]} r="2" fill="#60a5fa" style={{animationDelay:(i*.5)+'s'}}/>
+        ))}
+        {[[0,1],[1,2],[0,3],[3,4],[2,5],[5,6],[1,6]].map(([a,b],i)=>{
+          const pts=[[15,25],[55,10],[95,35],[45,60],[85,80],[135,50],[125,15]];
+          return <line key={'lr'+i} x1={pts[a][0]} y1={pts[a][1]} x2={pts[b][0]} y2={pts[b][1]}
+            stroke="#60a5fa" strokeWidth=".7" style={{animationDelay:(i*.35)+'s'}}/>;
+        })}
+      </svg>
+
+      {/* Números y datos flotantes */}
+      {[{x:'10%',y:'12%',t:'98.7%',c:'#4ade80'},{x:'88%',y:'42%',t:'$2.4M',c:'#C9A84C'},{x:'75%',y:'90%',t:'↑ 12%',c:'#60a5fa'},{x:'8%',y:'62%',t:'KPI',c:'#94a3b8'},{x:'60%',y:'6%',t:'ROI',c:'#C9A84C'},{x:'32%',y:'94%',t:'Q4',c:'#60a5fa'}].map((n,i)=>(
+        <div key={'num'+i} className="login-float-symbol" style={{left:n.x,top:n.y,color:n.c,fontSize:10,fontWeight:700,fontFamily:'Century Gothic,sans-serif',
+          letterSpacing:'.5px','--o':'.07','--dur':(15+i*2)+'s','--delay':(i*1.8)+'s','--dy':(-8-i*3)+'px','--r':'0deg'}}>
+          {n.t}
+        </div>
+      ))}
+    </div>
+
+    {/* Partículas ascendentes */}
+    <div className="login-particles">
+      {Array.from({length:22},(_,i)=>(
+        <div key={i} className="login-particle" style={{'--x':(3+Math.random()*94)+'%','--dur':(8+Math.random()*16)+'s','--delay':(Math.random()*12)+'s',
+          width:1+Math.random()*2.5,height:1+Math.random()*2.5,background:i%4===0?'#C9A84C':i%4===1?'#60a5fa':i%4===2?'#4ade80':'rgba(255,255,255,.4)'}}/>
+      ))}
+    </div>
+
+    {/* ── Card de Login ── */}
+    <div className="login-card">
+      <div className="login-card-highlight"/>
+      <div style={{position:'relative',zIndex:2}}>
+      {/* Logo Orbital Premium */}
       <div style={{textAlign:'center',marginBottom:32}}>
-        {cfg.logo
-          ? <img src={cfg.logo} alt="Logo" style={{width:80,height:80,objectFit:'contain',margin:'0 auto 16px',display:'block',borderRadius:12,background:'rgba(255,255,255,.05)',padding:4}}/>
-          : <div style={{width:72,height:72,borderRadius:16,background:'linear-gradient(135deg,#1E3A5F,#C9A84C)',margin:'0 auto 16px',display:'flex',alignItems:'center',justifyContent:'center'}}>
-              <span className="sy" style={{fontSize:22,fontWeight:800,color:'#fff'}}>IP</span>
-            </div>
-        }
-        <h1 className="sy" style={{fontSize:22,fontWeight:800,color:'#fff',letterSpacing:'-0.5px',margin:0}}>
-          INTPLANNER <span style={{color:'#C9A84C'}}>PRO</span>
+        <div className="login-logo-wrap">
+          {/* Anillo exterior decorativo */}
+          <div className="login-logo-ring-outer"/>
+          {/* Órbita dorada — sentido horario */}
+          <div className="login-orbit-cw">
+            <div className="login-dot"/>
+            <div className="login-trail"/>
+          </div>
+          {/* Órbita plateada — sentido antihorario */}
+          <div className="login-orbit-ccw">
+            <div className="login-dot"/>
+            <div className="login-trail"/>
+          </div>
+          {/* Núcleo central */}
+          <div className="login-logo-core">
+            {cfg.logo
+              ? <img src={cfg.logo} alt="Logo" className="login-logo-img"/>
+              : <span className="login-logo-text">IP</span>
+            }
+          </div>
+        </div>
+        <h1 style={{fontSize:24,fontWeight:800,color:'#fff',letterSpacing:'-0.5px',margin:0,fontFamily:'Century Gothic,sans-serif'}}>
+          INTPLANNER <span style={{color:'#C9A84C',textShadow:'0 0 20px rgba(201,168,76,.2)'}}>PRO</span>
         </h1>
-        <p style={{color:'#64748b',fontSize:13,marginTop:4}}>{cfg.empresa||'Integra Consultores'}</p>
-        {!FIREBASE_OK&&<div style={{marginTop:8,fontSize:11,color:'#fbbf24',background:'rgba(251,191,36,.1)',border:'1px solid rgba(251,191,36,.2)',borderRadius:6,padding:'4px 10px',display:'inline-block'}}>
+        <p style={{color:'#4d6480',fontSize:13,marginTop:6,fontFamily:'Century Gothic,sans-serif',letterSpacing:'.3px'}}>{cfg.empresa||'Integra Consultores'}</p>
+        {/* Línea decorativa dorada */}
+        <div style={{width:50,height:2,background:'linear-gradient(90deg,transparent,#C9A84C,transparent)',margin:'14px auto 0',borderRadius:1,opacity:.5}}/>
+        {!FIREBASE_OK&&<div style={{marginTop:12,fontSize:11,color:'#fbbf24',background:'rgba(251,191,36,.08)',border:'1px solid rgba(251,191,36,.15)',borderRadius:8,padding:'5px 12px',display:'inline-block',fontFamily:'Century Gothic,sans-serif'}}>
           Modo Demo — Configure Firebase para producción
         </div>}
       </div>
@@ -2384,32 +3017,33 @@ const Login = ({onLogin}) => {
       {/* Pantalla de validación QR */}
       {qrLoading ? (
         <div style={{textAlign:'center',padding:'24px 0'}}>
-          <div style={{width:48,height:48,borderRadius:'50%',background:'linear-gradient(135deg,#1E3A5F,#C9A84C)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 16px'}}>
+          <div style={{width:52,height:52,borderRadius:'50%',background:'linear-gradient(145deg,#1E3A5F,#234a75)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 16px',
+            boxShadow:'0 4px 16px rgba(30,58,95,.5)',border:'1px solid rgba(201,168,76,.2)'}}>
             <Ico n="qr" s={24} c="#fff"/>
           </div>
-          <p style={{color:'#C9A84C',fontWeight:600,fontSize:14,margin:'0 0 6px'}}>Verificando acceso por QR...</p>
-          <p style={{color:'#64748b',fontSize:12}}>Validando token de sesión</p>
+          <p style={{color:'#C9A84C',fontWeight:600,fontSize:14,margin:'0 0 6px',fontFamily:'Century Gothic,sans-serif'}}>Verificando acceso por QR...</p>
+          <p style={{color:'#4d6480',fontSize:12,fontFamily:'Century Gothic,sans-serif'}}>Validando token de sesión</p>
         </div>
       ) : (<>
-      {err&&<div role="alert" aria-live="assertive" style={{background:'rgba(153,27,27,.2)',border:'1px solid rgba(248,113,113,.25)',borderRadius:8,padding:'8px 12px',fontSize:12,color:'#fca5a5',marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
+      {err&&<div role="alert" aria-live="assertive" style={{background:'rgba(153,27,27,.15)',border:'1px solid rgba(248,113,113,.2)',borderRadius:10,padding:'10px 14px',fontSize:12,color:'#fca5a5',marginBottom:14,display:'flex',alignItems:'center',gap:8,fontFamily:'Century Gothic,sans-serif'}}>
         <Ico n="info" s={14}/>{err}
       </div>}
-      {/* Indicador de intentos fallidos — FIX v12.1 */}
       {intentos > 0 && intentos < 5 && !bloqueadoHasta && (
-        <div style={{fontSize:11,color:'#f59e0b',textAlign:'center',marginBottom:8}}>
+        <div style={{fontSize:11,color:'#f59e0b',textAlign:'center',marginBottom:10,fontFamily:'Century Gothic,sans-serif'}}>
           {5 - intentos} intento{5-intentos!==1?'s':''} restante{5-intentos!==1?'s':''} antes del bloqueo temporal
         </div>
       )}
       <form onSubmit={submit} aria-label="Formulario de inicio de sesión">
-        <div style={{marginBottom:14}}>
-          <label htmlFor="ip-email" style={{display:'block',fontSize:11,fontWeight:600,color:'#64748b',marginBottom:6,textTransform:'uppercase',letterSpacing:'.4px'}}>Correo Electrónico</label>
+        <div style={{marginBottom:16}}>
+          <label htmlFor="ip-email" style={{display:'block',fontSize:10.5,fontWeight:600,color:'#4d6480',marginBottom:7,textTransform:'uppercase',letterSpacing:'.5px',fontFamily:'Century Gothic,sans-serif'}}>Correo Electrónico</label>
           <input id="ip-email" className="inp" type="email" placeholder="usuario@empresa.com" value={email} onChange={e=>setEmail(e.target.value)} required autoComplete="email" aria-required="true" disabled={!!bloqueadoHasta}/>
         </div>
-        <div style={{marginBottom:14}}>
-          <label htmlFor="ip-pass" style={{display:'block',fontSize:11,fontWeight:600,color:'#64748b',marginBottom:6,textTransform:'uppercase',letterSpacing:'.4px'}}>Contraseña</label>
+        <div style={{marginBottom:16}}>
+          <label htmlFor="ip-pass" style={{display:'block',fontSize:10.5,fontWeight:600,color:'#4d6480',marginBottom:7,textTransform:'uppercase',letterSpacing:'.5px',fontFamily:'Century Gothic,sans-serif'}}>Contraseña</label>
           <div style={{position:'relative'}}>
             <input id="ip-pass" className="inp" type={showPass?'text':'password'} placeholder="••••••••" value={pass} onChange={e=>setPass(e.target.value)} required autoComplete="current-password" aria-required="true" disabled={!!bloqueadoHasta} style={{paddingRight:40}}/>
-            <button type="button" onClick={()=>setShowPass(p=>!p)} aria-label={showPass?'Ocultar contraseña':'Mostrar contraseña'} style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'#64748b',padding:4,display:'flex',alignItems:'center'}}>
+            <button type="button" onClick={()=>setShowPass(p=>!p)} aria-label={showPass?'Ocultar contraseña':'Mostrar contraseña'} style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'#4d6480',padding:4,display:'flex',alignItems:'center',transition:'color .25s'}}
+              onMouseEnter={e=>e.currentTarget.style.color='#C9A84C'} onMouseLeave={e=>e.currentTarget.style.color='#4d6480'}>
               {showPass
                 ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                 : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -2417,12 +3051,12 @@ const Login = ({onLogin}) => {
             </button>
           </div>
         </div>
-        {/* A2: Mantener sesión iniciada */}
-        <div style={{marginBottom:14,display:'flex',alignItems:'center',gap:8}}>
+        {/* Mantener sesión */}
+        <div style={{marginBottom:18,display:'flex',alignItems:'center',gap:8}}>
           <input type="checkbox" id="ip-keep-session" checked={keepSession} onChange={e=>{setKeepSession(e.target.checked);}} style={{width:15,height:15,cursor:'pointer',accentColor:'#C9A84C'}}/>
-          <label htmlFor="ip-keep-session" style={{fontSize:12,color:'#94a3b8',cursor:'pointer',userSelect:'none'}}>Mantener sesión iniciada</label>
+          <label htmlFor="ip-keep-session" style={{fontSize:12,color:'#5a7392',cursor:'pointer',userSelect:'none',fontFamily:'Century Gothic,sans-serif'}}>Mantener sesión iniciada</label>
         </div>
-        <button type="submit" disabled={loading||!!bloqueadoHasta} className="btn btn-p" style={{width:'100%',justifyContent:'center',padding:'11px',marginTop:4}} aria-label="Iniciar sesión">
+        <button type="submit" disabled={loading||!!bloqueadoHasta} className="login-btn" aria-label="Iniciar sesión">
           {bloqueadoHasta
             ? `⏱ Bloqueado — espere ${segsBloqueo}s`
             : loading
@@ -2432,9 +3066,8 @@ const Login = ({onLogin}) => {
         </button>
       </form>
 
-      <div style={{marginTop:20,textAlign:'center'}}>
-        {/* B5: Email de contacto leído exclusivamente de la configuración */}
-        <button style={{fontSize:12,color:'#475569',background:'none',border:'none',cursor:'pointer'}}
+      <div style={{marginTop:22,textAlign:'center'}}>
+        <button className="login-footer" style={{background:'none',border:'none',cursor:'pointer',transition:'color .3s'}}
           onClick={()=>{
             const contacto = cfg.adminEmail || cfg.email || null;
             if(contacto){
@@ -2447,10 +3080,11 @@ const Login = ({onLogin}) => {
         </button>
       </div>
 
-      <div style={{marginTop:16,borderTop:'1px solid #243447',paddingTop:16,textAlign:'center'}}>
-        <p style={{fontSize:11,color:'#334155',marginBottom:4}}>Para acceso inicial configure Firebase Auth</p>
+      <div style={{marginTop:18,borderTop:'1px solid rgba(36,52,71,.5)',paddingTop:16,textAlign:'center'}}>
+        <p style={{fontSize:10,color:'#2a3e55',fontFamily:'Century Gothic,sans-serif',letterSpacing:'.2px'}}>Para acceso inicial configure Firebase Auth</p>
       </div>
       </>)}
+      </div>
     </div>
   </div>;
 };
@@ -2741,78 +3375,117 @@ const KPI_CATALOG = [
 // IDs activos por defecto (8 KPIs, 2 filas de 4)
 const KPI_DEFAULT = ['pct','venc','prox','cliActivos','totalFact','cobrado','porCobrar','proy'];
 
-// ── GRÁFICO EVOLUCIÓN 6 MESES (Dashboard) ─────────────────────
+// ── GRÁFICO EVOLUCIÓN 6 MESES (Dashboard) — Interactivo ──────
 const GraficoEvolucion = ({tareas, facturas}) => {
+  const [hoverIdx, setHoverIdx] = useState(null);
+  const [series, setSeries] = useState({comp:true,pend:true,fact:true,cob:true});
+  const toggleSeries = k => setSeries(p=>({...p,[k]:!p[k]}));
+
   const meses6 = useMemo(()=>{
     const hoy = new Date();
     return Array.from({length:6},(_,i)=>{
       const d = new Date(hoy.getFullYear(), hoy.getMonth()-5+i, 1);
       const y = d.getFullYear(); const m = d.getMonth();
       const label = d.toLocaleString('es-CO',{month:'short'}).replace('.','');
+      const fullLabel = d.toLocaleString('es-CO',{month:'long',year:'numeric'});
       const PAGADOS_G=['pagada','Paz y Salvo','Pagada','Paz Y Salvo'];
       const comp = tareas.filter(t=>!t.esAlerta&&t.estado==='completada'&&t.fechaVen&&new Date(t.fechaVen).getFullYear()===y&&new Date(t.fechaVen).getMonth()===m).length;
       const pend = tareas.filter(t=>!t.esAlerta&&t.estado!=='completada'&&t.fechaVen&&new Date(t.fechaVen).getFullYear()===y&&new Date(t.fechaVen).getMonth()===m).length;
       const fact = facturas.filter(f=>f.fecha&&new Date(f.fecha).getFullYear()===y&&new Date(f.fecha).getMonth()===m).reduce((a,f)=>a+(Number(f.valor)||0)*(f.iva?1.19:1),0);
       const cob  = facturas.filter(f=>PAGADOS_G.includes(f.estado)&&f.fecha&&new Date(f.fecha).getFullYear()===y&&new Date(f.fecha).getMonth()===m).reduce((a,f)=>a+(Number(f.valor)||0)*(f.iva?1.19:1),0);
-      return {label,comp,pend,fact,cob};
+      return {label,fullLabel,comp,pend,fact,cob};
     });
   },[tareas,facturas]);
 
-  const maxT = Math.max(...meses6.map(m=>m.comp+m.pend),1);
-  const maxF = Math.max(...meses6.map(m=>m.fact),1);
-  const W=60; const H=90; const GAP=12; const TOTAL_W=6*(W+GAP);
-  const ultimo = meses6[meses6.length-1]||{};
+  const maxT = Math.max(...meses6.map(m=>(series.comp?m.comp:0)+(series.pend?m.pend:0)),1);
+  const maxF = Math.max(...meses6.map(m=>series.fact?m.fact:0),1);
+  const W=68; const H=110; const GAP=14; const TOTAL_W=6*(W+GAP);
+  const hData = hoverIdx!==null ? meses6[hoverIdx] : null;
 
-  return <div className="card-p" style={{marginBottom:14}}>
-    <div className="gline"/>
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14,flexWrap:'wrap',gap:8}}>
-      <h3 className="sy" style={{color:'#fff',fontWeight:700,fontSize:14,margin:0}}>
+  const SERIES_CFG = [
+    {k:'comp',label:'Completadas',color:'#4ade80'},
+    {k:'pend',label:'Pendientes',color:'#475569'},
+    {k:'fact',label:'Facturado',color:'#C9A84C'},
+    {k:'cob', label:'Cobrado',color:'#60a5fa'},
+  ];
+
+  return <div className="dash-card" style={{marginBottom:14}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16,flexWrap:'wrap',gap:8}}>
+      <h3 className="dash-section-title" style={{margin:0}}>
         <Ico n="analytics" s={15} c="#C9A84C"/> Evolución 6 Meses
       </h3>
-      <div style={{display:'flex',gap:12,fontSize:11,color:'#64748b',flexWrap:'wrap'}}>
-        {[['#4ade80','Completadas'],['#334155','Pendientes'],['#C9A84C','Facturado'],['#60a5fa','Cobrado']].map(([c,l])=>(
-          <span key={l} style={{display:'flex',alignItems:'center',gap:4}}>
-            <span style={{width:10,height:10,borderRadius:2,background:c,display:'inline-block'}}/>
-            {l}
-          </span>
+      {/* Leyenda interactiva — clic para mostrar/ocultar serie */}
+      <div style={{display:'flex',gap:6,fontSize:11,flexWrap:'wrap'}}>
+        {SERIES_CFG.map(s=>(
+          <button key={s.k} onClick={()=>toggleSeries(s.k)}
+            style={{display:'flex',alignItems:'center',gap:5,padding:'4px 10px',borderRadius:20,border:'1px solid',cursor:'pointer',transition:'all .25s ease',
+              borderColor:series[s.k]?s.color+'44':'#1e2d42',background:series[s.k]?s.color+'12':'transparent',color:series[s.k]?s.color:'#3e4f63',
+              fontFamily:'Century Gothic,sans-serif',fontWeight:600,fontSize:10.5,opacity:series[s.k]?1:.5}}>
+            <span style={{width:8,height:8,borderRadius:2,background:series[s.k]?s.color:'#2a3a4d',display:'inline-block',transition:'background .25s'}}/>
+            {s.label}
+          </button>
         ))}
       </div>
     </div>
+
+    {/* Tooltip al hacer hover */}
+    {hData && <div style={{background:'linear-gradient(135deg,#1a2d44,#162030)',border:'1px solid rgba(201,168,76,.25)',borderRadius:10,padding:'10px 14px',
+      marginBottom:12,display:'flex',gap:16,alignItems:'center',flexWrap:'wrap',boxShadow:'0 4px 20px rgba(0,0,0,.3)'}}>
+      <span style={{fontSize:12,fontWeight:700,color:'#C9A84C',fontFamily:'Century Gothic,sans-serif',textTransform:'capitalize'}}>{hData.fullLabel}</span>
+      <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
+        {series.comp&&<span style={{fontSize:11,color:'#4ade80',fontFamily:'Century Gothic,sans-serif'}}>✓ {hData.comp} completadas</span>}
+        {series.pend&&<span style={{fontSize:11,color:'#94a3b8',fontFamily:'Century Gothic,sans-serif'}}>⏳ {hData.pend} pendientes</span>}
+        {series.fact&&<span style={{fontSize:11,color:'#C9A84C',fontFamily:'Century Gothic,sans-serif'}}>💰 {fmt.cop(hData.fact)}</span>}
+        {series.cob&&<span style={{fontSize:11,color:'#60a5fa',fontFamily:'Century Gothic,sans-serif'}}>✅ {fmt.cop(hData.cob)}</span>}
+      </div>
+    </div>}
+
     <div style={{overflowX:'auto'}}>
-      <svg width={TOTAL_W+20} height={H+40} style={{display:'block',margin:'0 auto'}}>
+      <svg width={TOTAL_W+24} height={H+44} style={{display:'block',margin:'0 auto'}}>
+        {/* Grid lines */}
         {[0,0.25,0.5,0.75,1].map(p=>(
-          <line key={p} x1={0} y1={H*(1-p)} x2={TOTAL_W+20} y2={H*(1-p)} stroke="#1e2d42" strokeWidth={1}/>
+          <line key={p} x1={0} y1={H*(1-p)} x2={TOTAL_W+20} y2={H*(1-p)} stroke="#1a2a3e" strokeWidth={1} strokeDasharray={p>0&&p<1?"4,6":"none"}/>
         ))}
+        {/* Barras por mes */}
         {meses6.map((m,i)=>{
-          const x=i*(W+GAP); const bw=W/4-2;
-          const hC=m.comp/maxT*H; const hP=m.pend/maxT*H;
-          const hF=m.fact/maxF*H; const hO=m.cob/maxF*H;
-          return <g key={i}>
-            <rect x={x}        y={H-hC} width={bw} height={hC} rx={2} fill="#4ade80" fillOpacity={.85}/>
-            <rect x={x+bw+2}   y={H-hP} width={bw} height={hP} rx={2} fill="#334155"/>
-            <rect x={x+2*(bw+2)} y={H-hF} width={bw} height={hF} rx={2} fill="#C9A84C" fillOpacity={.9}/>
-            <rect x={x+3*(bw+2)} y={H-hO} width={bw} height={hO} rx={2} fill="#60a5fa" fillOpacity={.85}/>
-            <text x={x+W/2} y={H+18} textAnchor="middle" fill="#64748b" fontSize={11}>{m.label}</text>
-            {m.comp>0&&<text x={x+bw/2} y={H-hC-4} textAnchor="middle" fill="#4ade80" fontSize={9} fontWeight="700">{m.comp}</text>}
+          const x=i*(W+GAP); const activeCount=[series.comp,series.pend,series.fact,series.cob].filter(Boolean).length;
+          const bw=activeCount>0?W/activeCount-2:W/4-2; let bIdx=0;
+          const isHover = hoverIdx===i;
+          const hC=series.comp?m.comp/maxT*H:0; const hP=series.pend?m.pend/maxT*H:0;
+          const hF=series.fact?m.fact/maxF*H:0; const hO=series.cob?m.cob/maxF*H:0;
+          return <g key={i} onMouseEnter={()=>setHoverIdx(i)} onMouseLeave={()=>setHoverIdx(null)} style={{cursor:'pointer'}}>
+            {/* Highlight zone */}
+            <rect x={x-4} y={0} width={W+8} height={H+24} rx={6} fill={isHover?'rgba(201,168,76,.04)':'transparent'} stroke={isHover?'rgba(201,168,76,.12)':'none'} strokeWidth={1}/>
+            {series.comp&&(()=>{const cx=x+(bIdx++*(bw+2));return<><rect x={cx} y={H-hC} width={bw} height={Math.max(hC,0)} rx={3} fill="#4ade80" fillOpacity={isHover?.95:.7}>
+              <animate attributeName="height" from="0" to={Math.max(hC,0)} dur="0.6s" fill="freeze"/><animate attributeName="y" from={H} to={H-hC} dur="0.6s" fill="freeze"/></rect>
+              {hC>12&&<text x={cx+bw/2} y={H-hC+12} textAnchor="middle" fill="#fff" fontSize={9} fontWeight="700" style={{fontFamily:'Century Gothic,sans-serif'}}>{m.comp}</text>}</>})()}
+            {series.pend&&(()=>{const cx=x+(bIdx++*(bw+2));return<rect x={cx} y={H-hP} width={bw} height={Math.max(hP,0)} rx={3} fill="#475569" fillOpacity={isHover?.9:.6}>
+              <animate attributeName="height" from="0" to={Math.max(hP,0)} dur="0.6s" fill="freeze"/><animate attributeName="y" from={H} to={H-hP} dur="0.6s" fill="freeze"/></rect>})()}
+            {series.fact&&(()=>{const cx=x+(bIdx++*(bw+2));return<rect x={cx} y={H-hF} width={bw} height={Math.max(hF,0)} rx={3} fill="#C9A84C" fillOpacity={isHover?.95:.75}>
+              <animate attributeName="height" from="0" to={Math.max(hF,0)} dur="0.6s" fill="freeze"/><animate attributeName="y" from={H} to={H-hF} dur="0.6s" fill="freeze"/></rect>})()}
+            {series.cob&&(()=>{const cx=x+(bIdx++*(bw+2));return<rect x={cx} y={H-hO} width={bw} height={Math.max(hO,0)} rx={3} fill="#60a5fa" fillOpacity={isHover?.95:.7}>
+              <animate attributeName="height" from="0" to={Math.max(hO,0)} dur="0.6s" fill="freeze"/><animate attributeName="y" from={H} to={H-hO} dur="0.6s" fill="freeze"/></rect>})()}
+            <text x={x+W/2} y={H+20} textAnchor="middle" fill={isHover?'#C9A84C':'#64748b'} fontSize={11} fontWeight={isHover?'700':'400'} style={{fontFamily:'Century Gothic,sans-serif',textTransform:'capitalize'}}>{m.label}</text>
           </g>;
         })}
-        <text x={TOTAL_W+16} y={8}    fill="#475569" fontSize={9} textAnchor="end">{maxT}</text>
-        <text x={TOTAL_W+16} y={H/2}  fill="#475569" fontSize={9} textAnchor="end">{Math.round(maxT/2)}</text>
-        <text x={TOTAL_W+16} y={H}    fill="#475569" fontSize={9} textAnchor="end">0</text>
+        {/* Scale labels */}
+        <text x={TOTAL_W+20} y={8}   fill="#3e4f63" fontSize={9} textAnchor="end" style={{fontFamily:'Century Gothic,sans-serif'}}>{maxT}</text>
+        <text x={TOTAL_W+20} y={H/2} fill="#3e4f63" fontSize={9} textAnchor="end" style={{fontFamily:'Century Gothic,sans-serif'}}>{Math.round(maxT/2)}</text>
+        <text x={TOTAL_W+20} y={H}   fill="#3e4f63" fontSize={9} textAnchor="end" style={{fontFamily:'Century Gothic,sans-serif'}}>0</text>
       </svg>
     </div>
-    <div style={{display:'flex',gap:8,marginTop:12,flexWrap:'wrap'}}>
-      {[
-        {l:'Completadas',v:ultimo.comp||0,    c:'#4ade80', fmt:n=>n},
-        {l:'Pendientes', v:ultimo.pend||0,    c:'#f87171', fmt:n=>n},
-        {l:'Facturado',  v:ultimo.fact||0,    c:'#C9A84C', fmt:fmt.cop},
-        {l:'Cobrado',    v:ultimo.cob||0,     c:'#60a5fa', fmt:fmt.cop},
-      ].map(k=>(
-        <div key={k.l} style={{flex:'1 1 110px',padding:'8px 10px',borderRadius:8,background:'#0f1923',border:'1px solid #1e2d42',textAlign:'center'}}>
-          <p style={{fontSize:11,color:'#64748b',margin:'0 0 4px'}}>{k.l} (mes)</p>
-          <p style={{fontSize:14,fontWeight:700,color:k.c,margin:0}}>{k.fmt(k.v)}</p>
-        </div>
-      ))}
+
+    {/* Resumen del mes actual */}
+    <div style={{display:'flex',gap:8,marginTop:14,flexWrap:'wrap'}}>
+      {SERIES_CFG.filter(s=>series[s.k]).map(s=>{
+        const ultimo=meses6[meses6.length-1]||{};
+        const v=s.k==='comp'?ultimo.comp:s.k==='pend'?ultimo.pend:s.k==='fact'?ultimo.fact:ultimo.cob;
+        const fmtV=(s.k==='fact'||s.k==='cob')?fmt.cop(v||0):(v||0);
+        return <div key={s.k} className="dash-chart-summary">
+          <p style={{fontSize:10,color:'#556b84',margin:'0 0 3px',fontFamily:'Century Gothic,sans-serif'}}>{s.label} (mes)</p>
+          <p style={{fontSize:14,fontWeight:700,color:s.color,margin:0,fontFamily:'Century Gothic,sans-serif'}}>{fmtV}</p>
+        </div>;
+      })}
     </div>
   </div>;
 };
@@ -2826,6 +3499,9 @@ const Dashboard = () => {
     try { return JSON.parse(localStorage.getItem('ip_dash_kpis')||'null') || KPI_DEFAULT; }
     catch{ return KPI_DEFAULT; }
   });
+
+  // Estado para "Ver más" en Cumplimiento por Cliente
+  const [showAllClients, setShowAllClients] = useState(false);
 
   // Escuchar cambios en tiempo real desde Config
   useEffect(()=>{
@@ -2865,29 +3541,38 @@ const Dashboard = () => {
 
   const proxTareas = tareas.filter(t=>!t.esAlerta&&t.estado!=='completada').sort((a,b)=>new Date(a.fechaVen)-new Date(b.fechaVen)).slice(0,6);
 
-  const cumplCliente = clientes.slice(0,4).map(c=>{
+  // Cumplimiento por cliente — TODOS los clientes con tareas y facturación
+  const PAGADOS_CC = ['pagada','Paz y Salvo','Pagada','Paz Y Salvo'];
+  const allCumplCliente = useMemo(()=>clientes.map(c=>{
     const ct=tareas.filter(t=>t.clienteId===c.id&&!t.esAlerta);
     const cc=ct.filter(t=>t.estado==='completada');
-    return{...c,pct:ct.length?Math.round(cc.length/ct.length*100):0,n:ct.length};
-  });
+    const cv=ct.filter(t=>t.fechaVen&&t.fechaVen<hoy&&t.estado!=='completada');
+    const cf=facturas.filter(f=>f.clienteId===c.id);
+    const pc=cf.filter(f=>!PAGADOS_CC.includes(f.estado)).reduce((a,f)=>a+(Number(f.valor)||0)*(f.iva?1.19:1),0);
+    return{...c,pct:ct.length?Math.round(cc.length/ct.length*100):0,n:ct.length,vencidas:cv.length,porCobrar:pc};
+  }),[clientes,tareas,facturas,hoy]);
 
-  return <div className="fade">
+  const cumplClienteVisible = showAllClients ? allCumplCliente : allCumplCliente.slice(0,4);
+  const hasMoreClients = allCumplCliente.length > 4;
+
+  return <div className="fade dash-premium">
+    {/* ── KPI Rows — primera fila más compacta ── */}
     {kpiRows.map((row,ri)=>(
-      <div key={ri} className="grid-4" style={{marginBottom:16}}>
+      <div key={ri} className={clx('grid-4',ri===0&&'kpi-row-top')} style={{marginBottom:16}}>
         {row.map(k=><KPI key={k.id} label={k.label} val={k.fn(st)} ico={k.ico} color={k.color}/>)}
       </div>
     ))}
 
+    {/* ── Secciones centrales: Próximas Tareas + Estado Tareas ── */}
     <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:14,marginBottom:14}}>
-      <div className="card-p">
-        <div className="gline"/>
-        <h3 className="sy" style={{color:'#fff',fontWeight:700,fontSize:14,marginBottom:12,display:'flex',alignItems:'center',gap:8}}><Ico n="tasks" s={15} c="#C9A84C"/>Próximas Tareas</h3>
-        {proxTareas.length===0&&<p style={{color:'#475569',fontSize:13,textAlign:'center',padding:'24px 0'}}>Sin tareas pendientes ✓</p>}
+      <div className="dash-card">
+        <h3 className="dash-section-title"><Ico n="tasks" s={15} c="#C9A84C"/>Próximas Tareas</h3>
+        {proxTareas.length===0&&<p style={{color:'#556b84',fontSize:13,textAlign:'center',padding:'24px 0',fontFamily:'Century Gothic,sans-serif'}}>Sin tareas pendientes ✓</p>}
         {proxTareas.map(t=>(
-          <div key={t.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 10px',background:'#0f1923',borderRadius:8,border:'1px solid #243447',marginBottom:6}}>
+          <div key={t.id} className="dash-task-item">
             <div style={{flex:1,minWidth:0}}>
-              <p style={{fontSize:13,color:'#fff',fontWeight:500,margin:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.titulo}</p>
-              <p style={{fontSize:11,color:'#475569',margin:0}}>{clientes.find(c=>c.id===t.clienteId)?.nombre||'—'}</p>
+              <p style={{fontSize:13,color:'#e8ecf1',fontWeight:500,margin:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontFamily:'Century Gothic,sans-serif'}}>{t.titulo}</p>
+              <p style={{fontSize:11,color:'#556b84',margin:'2px 0 0'}}>{clientes.find(c=>c.id===t.clienteId)?.nombre||'—'}</p>
             </div>
             <div style={{display:'flex',gap:6,alignItems:'center',marginLeft:10,flexShrink:0}}>
               <SBadge s={t.prioridad}/>
@@ -2897,43 +3582,72 @@ const Dashboard = () => {
         ))}
       </div>
 
-      <div className="card-p">
-        <div className="gline"/>
-        <h3 className="sy" style={{color:'#fff',fontWeight:700,fontSize:14,marginBottom:12,display:'flex',alignItems:'center',gap:8}}><Ico n="analytics" s={15} c="#C9A84C"/>Estado Tareas</h3>
+      <div className="dash-card">
+        <h3 className="dash-section-title"><Ico n="analytics" s={15} c="#C9A84C"/>Estado Tareas</h3>
         {[
           {l:'Completadas',v:st.comp,c:'#22c55e',pct:st.pct},
           {l:'En Curso',v:tareas.filter(t=>t.estado==='en_curso').length,c:'#3b82f6',pct:tareas.length?Math.round(tareas.filter(t=>t.estado==='en_curso').length/tareas.length*100):0},
           {l:'Pendientes',v:tareas.filter(t=>t.estado==='pendiente').length,c:'#f59e0b',pct:tareas.length?Math.round(tareas.filter(t=>t.estado==='pendiente').length/tareas.length*100):0},
           {l:'Vencidas',v:st.venc,c:'#ef4444',pct:tareas.length?Math.round(st.venc/tareas.length*100):0},
         ].map(({l,v,c,pct})=>(
-          <div key={l} style={{marginBottom:12}}>
-            <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:4}}>
-              <span style={{color:'#94a3b8'}}>{l}</span>
-              <span style={{color:'#fff',fontWeight:600}}>{v}</span>
+          <div key={l} style={{marginBottom:14}}>
+            <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:5}}>
+              <span style={{color:'#94a3b8',fontFamily:'Century Gothic,sans-serif'}}>{l}</span>
+              <span style={{color:'#fff',fontWeight:600,fontFamily:'Century Gothic,sans-serif'}}>{v}</span>
             </div>
-            <PBar pct={pct} color={`bg-[${c}]`}/>
-            <div className="pbar"><div className="pfill" style={{width:pct+'%',background:c}}/></div>
+            <div className="dash-pbar"><div className="dash-pfill" style={{width:pct+'%',background:c,color:c}}/></div>
           </div>
         ))}
       </div>
     </div>
 
-    <div className="card-p">
-      <div className="gline"/>
-      <h3 className="sy" style={{color:'#fff',fontWeight:700,fontSize:14,marginBottom:12,display:'flex',alignItems:'center',gap:8}}><Ico n="clients" s={15} c="#C9A84C"/>Cumplimiento por Cliente</h3>
+    {/* ── Cumplimiento por Cliente — con Vencidas, Por Cobrar y Ver más ── */}
+    <div className="dash-card" style={{marginBottom:14}}>
+      <h3 className="dash-section-title"><Ico n="clients" s={15} c="#C9A84C"/>Cumplimiento por Cliente</h3>
       <div className="grid-4">
-        {cumplCliente.length===0&&<p style={{color:'#475569',fontSize:13}}>Sin clientes registrados.</p>}
-        {cumplCliente.map(c=>(
-          <div key={c.id} style={{background:'#0f1923',borderRadius:10,border:'1px solid #243447',padding:14}}>
-            <p style={{fontSize:13,fontWeight:600,color:'#fff',margin:'0 0 8px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.nombre}</p>
-            <div className="pbar" style={{marginBottom:6}}><div className="pfill" style={{width:c.pct+'%',background:'#C9A84C'}}/></div>
-            <div style={{display:'flex',justifyContent:'space-between',fontSize:11}}>
-              <span style={{color:'#475569'}}>{c.n} tareas</span>
-              <span style={{color:'#C9A84C',fontWeight:700}}>{c.pct}%</span>
+        {cumplClienteVisible.length===0&&<p style={{color:'#556b84',fontSize:13,fontFamily:'Century Gothic,sans-serif'}}>Sin clientes registrados.</p>}
+        {cumplClienteVisible.map(c=>(
+          <div key={c.id} className="dash-client-card">
+            {/* Nombre del cliente */}
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+              <div style={{width:32,height:32,borderRadius:8,background:'linear-gradient(135deg,rgba(201,168,76,.15),rgba(201,168,76,.05))',
+                border:'1px solid rgba(201,168,76,.2)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                <span style={{fontSize:13,fontWeight:700,color:'#C9A84C',fontFamily:'Century Gothic,sans-serif'}}>{(c.nombre||'?')[0].toUpperCase()}</span>
+              </div>
+              <p style={{fontSize:13,fontWeight:600,color:'#e8ecf1',margin:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontFamily:'Century Gothic,sans-serif',flex:1,minWidth:0}}>{c.nombre}</p>
+            </div>
+            {/* Barra de cumplimiento */}
+            <div style={{marginBottom:6}}>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:10,marginBottom:4}}>
+                <span style={{color:'#64748b',fontFamily:'Century Gothic,sans-serif'}}>Cumplimiento</span>
+                <span style={{color:'#C9A84C',fontWeight:700,fontFamily:'Century Gothic,sans-serif'}}>{c.pct}%</span>
+              </div>
+              <div className="dash-pbar"><div className="dash-pfill" style={{width:c.pct+'%',background:c.pct>=75?'#4ade80':c.pct>=50?'#C9A84C':'#f87171',color:c.pct>=75?'#4ade80':c.pct>=50?'#C9A84C':'#f87171'}}/></div>
+            </div>
+            {/* Métricas: Tareas, Vencidas, Por Cobrar */}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:4,marginTop:10}}>
+              <div style={{textAlign:'center',padding:'6px 2px',borderRadius:6,background:'rgba(96,165,250,.06)',border:'1px solid rgba(96,165,250,.12)'}}>
+                <div style={{fontSize:14,fontWeight:700,color:'#60a5fa',fontFamily:'Century Gothic,sans-serif'}}>{c.n}</div>
+                <div style={{fontSize:9,color:'#64748b',fontFamily:'Century Gothic,sans-serif',marginTop:1}}>Tareas</div>
+              </div>
+              <div style={{textAlign:'center',padding:'6px 2px',borderRadius:6,background:c.vencidas>0?'rgba(248,113,113,.08)':'rgba(74,222,128,.06)',border:c.vencidas>0?'1px solid rgba(248,113,113,.15)':'1px solid rgba(74,222,128,.12)'}}>
+                <div style={{fontSize:14,fontWeight:700,color:c.vencidas>0?'#f87171':'#4ade80',fontFamily:'Century Gothic,sans-serif'}}>{c.vencidas}</div>
+                <div style={{fontSize:9,color:'#64748b',fontFamily:'Century Gothic,sans-serif',marginTop:1}}>Vencidas</div>
+              </div>
+              <div style={{textAlign:'center',padding:'6px 2px',borderRadius:6,background:c.porCobrar>0?'rgba(201,168,76,.06)':'rgba(74,222,128,.06)',border:c.porCobrar>0?'1px solid rgba(201,168,76,.12)':'1px solid rgba(74,222,128,.12)'}}>
+                <div style={{fontSize:11,fontWeight:700,color:c.porCobrar>0?'#C9A84C':'#4ade80',fontFamily:'Century Gothic,sans-serif'}}>{c.porCobrar>0?fmt.cop(c.porCobrar):'$0'}</div>
+                <div style={{fontSize:9,color:'#64748b',fontFamily:'Century Gothic,sans-serif',marginTop:1}}>Por Cobrar</div>
+              </div>
             </div>
           </div>
         ))}
       </div>
+      {hasMoreClients && (
+        <button className="dash-ver-mas" onClick={()=>setShowAllClients(!showAllClients)}>
+          <Ico n={showAllClients?'up':'down'} s={13} c="#C9A84C"/>
+          {showAllClients ? `Ver menos` : `Ver más (${allCumplCliente.length - 4} clientes)`}
+        </button>
+      )}
     </div>
 
     {/* Gráfico evolución mensual — componente independiente */}
