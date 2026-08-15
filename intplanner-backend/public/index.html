@@ -6734,14 +6734,50 @@ const CompTareaForm = ({comp, idx, equipo, clientes, proyectos, toast, onUpdate,
 const VisitaCliente = () => {
   const {clientes,tareas,setTareas,equipo,proyectos,alertas,setAlertas,toast,user} = useApp();
 
-  // ─── Estado principal ───────────────────────────────────────
-  const [visitas,    setVisitas]    = useState(()=>DB.get('visitas_cliente'));
+  // ─── Deduplicación automática de visitas ────────────────────
+  // FIX COMPLETO: Limpia duplicados existentes causados por el bug de tareaId no persistido.
+  // Criterio: si dos visitas comparten clienteId+fecha+responsableId, conservar la más reciente.
+  // También elimina visitas huérfanas (sin clienteId o fecha).
+  const dedup = useCallback((arr) => {
+    const map = new Map();
+    const toDelete = [];
+    // Filtrar visitas huérfanas
+    const validas = arr.filter(v => {
+      if(!v.clienteId || !v.fecha) { toDelete.push(v.id); return false; }
+      return true;
+    });
+    validas.forEach(v => {
+      const key = `${v.clienteId}|${v.fecha}|${v.responsableId||''}`;
+      const existing = map.get(key);
+      if (!existing) { map.set(key, v); return; }
+      // Conservar la versión con updatedAt más reciente o con más compromisos
+      const exTime = existing.updatedAt || existing.creadoEn || '';
+      const nuTime = v.updatedAt || v.creadoEn || '';
+      const exComps = (existing.compromisos||[]).length;
+      const nuComps = (v.compromisos||[]).length;
+      if (nuTime > exTime || (nuTime === exTime && nuComps > exComps)) {
+        toDelete.push(existing.id);
+        map.set(key, v);
+      } else {
+        toDelete.push(v.id);
+      }
+    });
+    // Eliminar duplicados de la DB en segundo plano
+    if(toDelete.length > 0){
+      toDelete.forEach(id => DB.del('visitas_cliente', id).catch(()=>{}));
+      console.info(`[VisitaCliente] Purga: ${toDelete.length} duplicado(s) eliminado(s)`);
+    }
+    return [...map.values()];
+  }, []);
+
+  const [visitas,    setVisitas]    = useState(()=>dedup(DB.get('visitas_cliente')));
   const [open,       setOpen]       = useState(false);
   const [form,       setForm]       = useState({});
   const [delId,      setDelId]      = useState(null);
   const [viewDetail, setViewDetail] = useState(null);
   const [filCli,     setFilCli]     = useState('');
-  const [tabModal,   setTabModal]   = useState('visita'); // 'visita'|'temas'|'compromisos'
+  const [tabModal,   setTabModal]   = useState('visita');
+  const [saving,     setSaving]     = useState(false); // Protección doble-clic
 
   // ─── Estado modal Agendar Tarea independiente ───────────────
   const [openTarea,        setOpenTarea]        = useState(false);
@@ -6750,11 +6786,42 @@ const VisitaCliente = () => {
 
   const hoy = new Date().toISOString().split('T')[0];
 
-  // ─── Suscripción en tiempo real ─────────────────────────────
+  // ─── Suscripción en tiempo real (con deduplicación) ────────
   useEffect(()=>{
-    const unsub = DB.sub('visitas_cliente', rows => setVisitas(rows));
+    const unsub = DB.sub('visitas_cliente', rows => setVisitas(dedup(rows)));
     return ()=>unsub();
-  },[]);
+  },[dedup]);
+
+  // ─── Purga automática de tareas duplicadas por visitas ────
+  // Elimina tareas duplicadas generadas por el bug anterior.
+  // Criterio: si dos tareas no-alerta tienen el mismo visitaId + título,
+  // conservar la más reciente y eliminar la otra + su alerta vinculada.
+  useEffect(()=>{
+    const tareasVisita = tareas.filter(t => t.visitaId && !t.esAlerta);
+    if(tareasVisita.length < 2) return;
+    const map = new Map();
+    const toDelete = [];
+    tareasVisita.forEach(t => {
+      const key = `${t.visitaId}|${(t.titulo||'').trim().toLowerCase()}`;
+      const existing = map.get(key);
+      if(!existing) { map.set(key, t); return; }
+      const exTime = existing.updatedAt || existing.creadoEn || '';
+      const nuTime = t.updatedAt || t.creadoEn || '';
+      if(nuTime > exTime) {
+        toDelete.push(existing.id);
+        toDelete.push('alrt_' + existing.id);
+        map.set(key, t);
+      } else {
+        toDelete.push(t.id);
+        toDelete.push('alrt_' + t.id);
+      }
+    });
+    if(toDelete.length > 0) {
+      console.info(`[VisitaCliente] Purga tareas: ${toDelete.length/2} duplicado(s)`);
+      toDelete.forEach(id => DB.del('tareas', id).catch(()=>{}));
+      setTareas(prev => prev.filter(t => !toDelete.includes(t.id)));
+    }
+  }, []); // Solo al montar
 
   // ─── Helpers form visita ─────────────────────────────────────
   const upd  = k => e => setForm(p=>({...p,[k]:e.target.value}));
@@ -6823,7 +6890,23 @@ const VisitaCliente = () => {
   };
 
   const openEdit = v => {
-    setForm({...v, _nuevoTema:''});
+    // FIX RAÍZ: Reconstruir tareaIds en compromisos buscando tareas existentes
+    // vinculadas a esta visita. Esto repara visitas guardadas antes del fix de tareaId.
+    const tareasDeEstaVisita = tareas.filter(t => t.visitaId === v.id && !t.esAlerta);
+    const compReparados = (v.compromisos||[]).map(c => {
+      if(c.tareaId) return c; // Ya tiene tareaId → OK
+      if(c.responsable !== 'integra') return c; // Solo integra genera tareas
+      // Buscar tarea existente por coincidencia de título o descripción
+      const titulo = (c.titulo||c.descripcion||'').trim().toLowerCase();
+      if(!titulo) return c;
+      const match = tareasDeEstaVisita.find(t =>
+        (t.titulo||'').trim().toLowerCase() === titulo ||
+        (t.desc||'').includes(`visita del ${v.fecha}`)
+      );
+      if(match) return {...c, tareaId: match.id};
+      return c;
+    });
+    setForm({...v, compromisos: compReparados, _nuevoTema:''});
     setTabModal('visita');
     setOpen(true);
   };
@@ -6838,16 +6921,23 @@ const VisitaCliente = () => {
   };
 
   // ─── Sincronización completa hacia todos los módulos ─────────
-  const _sincTarea = (tareaData, isNew) => {
+  const _sincTarea = (tareaData) => {
     const PRIO_TIPO = {urgente:'Urgente',alta:'Vencimiento',media:'Recordatorio',baja:'Recordatorio'};
 
-    // 1. Persistir tarea
+    // FIX RAÍZ: Determinar isNew verificando si la tarea ya existe en el estado actual,
+    // NO confiar en el parámetro del caller. Esto previene crear duplicados cuando
+    // el caller dice isNew=true pero la tarea ya existe en DB.
+    const existeEnState = tareas.some(t => t.id === tareaData.id);
+
+    // 1. Persistir tarea (crea o sobrescribe por ID)
     DB.set('tareas', tareaData);
 
     // 2. Actualizar contexto global → reflejo inmediato en Tareas, Kanban, Informes
-    setTareas(prev => isNew
-      ? [tareaData,...prev]
-      : prev.map(x=>x.id===tareaData.id ? tareaData : x));
+    if(existeEnState) {
+      setTareas(prev => prev.map(x => x.id === tareaData.id ? tareaData : x));
+    } else {
+      setTareas(prev => [tareaData, ...prev]);
+    }
 
     // 3. Alerta vinculada determinista
     const alertaId = 'alrt_' + tareaData.id;
@@ -6878,23 +6968,42 @@ const VisitaCliente = () => {
 
   // ─── Save Visita ─────────────────────────────────────────────
   const saveVisita = () => {
+    if(saving) return; // Protección doble-clic
     if(!form.clienteId) return toast('Seleccione un cliente','error');
     if(!form.fecha)     return toast('La fecha es requerida','error');
+    setSaving(true); // Bloquear submit
 
     const esNueva = !form.id;
-    // FIX: construir el objeto visita explícitamente sin campos UI internos
-    // para evitar que JSON.stringify omita campos 'undefined' y corrompa el doc.
+
+    // GUARD ANTI-DUPLICACIÓN: Si es nueva, verificar que no exista ya una visita
+    // con el mismo cliente + fecha + responsable (posible doble clic o submit duplicado)
+    if(esNueva){
+      const key = `${form.clienteId}|${form.fecha}|${form.responsableId||''}`;
+      const yaExiste = visitas.find(v=>`${v.clienteId}|${v.fecha}|${v.responsableId||''}`===key);
+      if(yaExiste){
+        toast('⚠ Ya existe una visita para este cliente en esta fecha. Use Editar en lugar de crear una nueva.','warning');
+        return;
+      }
+    }
+    // FIX DUPLICACIÓN: Asignar tareaIds a los compromisos ANTES de construir el objeto visita.
+    // Causa raíz: los tareaIds se asignaban DESPUÉS de DB.set, por lo que nunca se persistían.
+    // Al editar la visita, los compromisos no tenían tareaId → se generaba un uid() nuevo → tarea duplicada.
+    const compConIds = (form.compromisos||[]).filter(c=>c.descripcion?.trim()||c.titulo?.trim()).map(c=>({
+      ...c,
+      tareaId: c.tareaId || (c.responsable==='integra' ? uid() : undefined),
+    }));
+
     const visita  = {
       id:          form.id||uid(),
       clienteId:   form.clienteId||'',
       fecha:       form.fecha||'',
       responsableId: form.responsableId||'',
-      estado:      form.estado||'realizada',  // FIX: garantizar que el estado se preserve
+      estado:      form.estado||'realizada',
       satisfaccion: form.satisfaccion||'buena',
       resultado:   form.resultado||'',
       observaciones: form.observaciones||'',
       temas:       (form.temas||[]).filter(t=>t.descripcion?.trim()),
-      compromisos: (form.compromisos||[]).map(c=>({...c})),
+      compromisos: compConIds,
       updatedAt:   new Date().toISOString(),
       creadoEn:    form.creadoEn||new Date().toISOString(),
       creadoPor:   form.creadoPor||user?.id||'',
@@ -6915,7 +7024,7 @@ const VisitaCliente = () => {
       console.warn('VisitaCliente: Firestore write error:', e.message)
     );
 
-    // 2. Compromisos tipo Integra → crear tareas completas
+    // 2. Compromisos tipo Integra → crear/actualizar tareas
     (visita.compromisos||[]).forEach(comp=>{
       if(comp.responsable!=='integra') return;
       const titulo = (comp.titulo||comp.descripcion||'').trim();
@@ -6925,9 +7034,10 @@ const VisitaCliente = () => {
         ? comp.responsablesIds
         : (comp.responsableId ? [comp.responsableId] : []);
 
-      const tareaId  = comp.tareaId || uid();
+      // comp.tareaId ya fue asignado en compConIds — no generar otro uid aquí
+      if(!comp.tareaId) return; // Seguridad: si no tiene tareaId, no procesar
       const tareaData = {
-        id:                tareaId,
+        id:                comp.tareaId,
         titulo,
         clienteId:         visita.clienteId,
         responsableId:     rIds[0]||'',
@@ -6953,12 +7063,11 @@ const VisitaCliente = () => {
         creadoEn:          new Date().toISOString(),
         updatedAt:         new Date().toISOString(),
       };
-      _sincTarea(tareaData, esNueva || !comp.tareaId);
-      // Actualizar el tareaId en el compromiso para enlace bidireccional
-      comp.tareaId = tareaId;
+      _sincTarea(tareaData);
     });
 
     setOpen(false);
+    setSaving(false);
     toast(esNueva?'✅ Visita registrada':'✅ Visita actualizada','success');
   };
 
@@ -7007,7 +7116,7 @@ const VisitaCliente = () => {
       esAlerta: false,
       visitaId: visitaParaTarea?.id||tareaForm.visitaId||'',
     };
-    _sincTarea(tareaData, esNueva);
+    _sincTarea(tareaData);
     setOpenTarea(false);
     setVisitaParaTarea(null);
     toast(esNueva?'✅ Tarea creada y sincronizada':'✅ Tarea actualizada','success');
@@ -7287,32 +7396,32 @@ const VisitaCliente = () => {
   // ══════════════════════════════════════════════════════════════
   // RENDER
   // ══════════════════════════════════════════════════════════════
-  return <div className="fade">
+  return <div className="fade dash-premium">
 
     {/* ── Barra de controles ────────────────────────────────── */}
     <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginBottom:14}}>
       <button className="btn btn-p btn-sm" onClick={openNew}>
         <Ico n="plus" s={14}/> Nueva Visita
       </button>
-      <select className="inp" style={{width:'auto',padding:'5px 10px',fontSize:12}}
+      <select className="inp" style={{width:'auto',padding:'5px 10px',fontSize:12,fontFamily:'Century Gothic,sans-serif'}}
         value={filCli} onChange={e=>setFilCli(e.target.value)}>
         <option value="">Todos los clientes</option>
         {[...clientes].sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'))
           .map(c=><option key={c.id} value={c.id}>{c.nombre}</option>)}
       </select>
-      <span style={{fontSize:11,color:'#475569',marginLeft:'auto'}}>
+      <span style={{fontSize:11,color:'#475569',marginLeft:'auto',fontFamily:'Century Gothic,sans-serif'}}>
         {lista.length} visita{lista.length!==1?'s':''}
       </span>
     </div>
 
-    {/* ── KPIs ─────────────────────────────────────────────── */}
-    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:14}}>
+    {/* ── KPIs Premium ─────────────────────────────────────── */}
+    <div className="grid-4 kpi-row-top" style={{marginBottom:16}}>
       {[
-        {l:'Total Visitas',   v:visitas.filter(v=>v.clienteId&&v.fecha).length,                                              c:'blue'},
-        {l:'Realizadas',      v:visitas.filter(v=>(v.estado||'').toLowerCase()==='realizada').length,             c:'green'},
-        {l:'Programadas',     v:visitas.filter(v=>v.estado==='programada').length,            c:'gold'},
-        {l:'Clientes Visita', v:new Set(visitas.filter(v=>v.clienteId&&v.clienteId.trim()).map(v=>v.clienteId)).size,    c:'blue'},
-      ].map(({l,v,c})=><KPI key={l} label={l} val={v} ico="noteEdit" color={c}/>)}
+        {l:'Total Visitas',   v:visitas.filter(v=>v.clienteId&&v.fecha).length, ico:'noteEdit', c:'blue'},
+        {l:'Realizadas',      v:visitas.filter(v=>(v.estado||'').toLowerCase()==='realizada').length, ico:'check', c:'green'},
+        {l:'Programadas',     v:visitas.filter(v=>v.estado==='programada').length, ico:'calendar', c:'gold'},
+        {l:'Clientes Visita', v:new Set(visitas.filter(v=>v.clienteId&&v.clienteId.trim()).map(v=>v.clienteId)).size, ico:'clients', c:'blue'},
+      ].map(({l,v,ico,c})=><KPI key={l} label={l} val={v} ico={ico} color={c}/>)}
     </div>
 
     {/* ── Lista vacía ──────────────────────────────────────── */}
@@ -7320,93 +7429,150 @@ const VisitaCliente = () => {
       {filCli?'Sin visitas para este cliente.':'Sin visitas registradas. Haga clic en "Nueva Visita" para comenzar.'}
     </div>}
 
-    {/* ── Tarjetas ─────────────────────────────────────────── */}
+    {/* ── Tarjetas Premium ───────────────────────────────────── */}
     <div style={{display:'flex',flexDirection:'column',gap:10}}>
       {lista.map(v=>{
         const cli      = clientes.find(c=>c.id===v.clienteId);
         const resp     = equipo.find(e=>e.id===v.responsableId);
         const tareasV  = tareasDeVisita(v.id);
         const tDis     = (v.temas||[]).filter(t=>t.discutido).length;
+        const tTotal   = (v.temas||[]).length;
         const cCump    = (v.compromisos||[]).filter(c=>c.cumplido).length;
         const cTotal   = (v.compromisos||[]).length;
+        const satColor = SCOLOR[v.satisfaccion]||'#C9A84C';
+        const satPct   = v.satisfaccion==='excelente'?100:v.satisfaccion==='buena'?75:v.satisfaccion==='regular'?50:25;
 
-        return <div key={v.id} className="card-p">
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
+        return <div key={v.id} className="dash-card" style={{
+          transition:'all .3s ease',cursor:'default',
+        }} onMouseOver={e=>{e.currentTarget.style.borderColor='rgba(201,168,76,.3)';e.currentTarget.style.transform='translateY(-1px)';}}
+           onMouseOut={e=>{e.currentTarget.style.borderColor='rgba(36,52,71,.7)';e.currentTarget.style.transform='translateY(0)';}}>
+
+          {/* Header: Avatar + Info + Acciones */}
+          <div style={{display:'flex',gap:14,alignItems:'flex-start',marginBottom:14}}>
+            {/* Avatar del cliente */}
+            <div style={{width:48,height:48,borderRadius:12,flexShrink:0,
+              background:`linear-gradient(145deg,${satColor}18,${satColor}06)`,
+              border:`1.5px solid ${satColor}25`,
+              display:'flex',alignItems:'center',justifyContent:'center',
+              boxShadow:`0 2px 10px ${satColor}10`}}>
+              <span style={{fontSize:20,fontWeight:800,color:satColor,fontFamily:'Century Gothic,sans-serif'}}>
+                {(cli?.nombre||'?')[0].toUpperCase()}
+              </span>
+            </div>
+            {/* Info principal */}
             <div style={{flex:1,minWidth:0}}>
               <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:5,flexWrap:'wrap'}}>
-                <span style={{fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:99,
-                  background:v.estado==='realizada'?'rgba(74,222,128,.15)':'rgba(201,168,76,.12)',
-                  color:v.estado==='realizada'?'#4ade80':'#C9A84C',
-                  border:`1px solid ${v.estado==='realizada'?'rgba(74,222,128,.3)':'rgba(201,168,76,.25)'}`}}>
+                <span style={{fontSize:10,fontWeight:700,padding:'3px 12px',borderRadius:99,letterSpacing:'.3px',fontFamily:'Century Gothic,sans-serif',
+                  background:v.estado==='realizada'?'rgba(74,222,128,.1)':v.estado==='cancelada'?'rgba(239,68,68,.1)':'rgba(201,168,76,.08)',
+                  color:v.estado==='realizada'?'#4ade80':v.estado==='cancelada'?'#f87171':'#C9A84C',
+                  border:`1px solid ${v.estado==='realizada'?'rgba(74,222,128,.2)':v.estado==='cancelada'?'rgba(239,68,68,.2)':'rgba(201,168,76,.15)'}`}}>
                   {ESTADO_VIS[v.estado]||v.estado}
                 </span>
-                <span style={{fontSize:11,color:SCOLOR[v.satisfaccion],fontWeight:600}}>
-                  {SATISFACCION[v.satisfaccion]||''}
-                </span>
+                <span style={{fontSize:11,color:'#475569',marginLeft:'auto',fontFamily:'Century Gothic,sans-serif'}}>{fmt.date(v.fecha)}</span>
               </div>
-              <p className="sy" style={{fontWeight:700,color:'#fff',fontSize:14,margin:'0 0 4px'}}>
-                🏢 {cli?.nombre||'—'}
+              <p style={{fontWeight:700,color:'#e8ecf1',fontSize:15,margin:'0 0 6px',fontFamily:'Century Gothic,sans-serif',
+                overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                {cli?.nombre||'—'}
               </p>
-              <div style={{display:'flex',flexWrap:'wrap',gap:10,fontSize:11,color:'#475569'}}>
-                <span>📅 {v.fecha}</span>
-                {resp&&<span>👤 {resp.nombre}</span>}
-                {(v.temas||[]).length>0&&<span style={{color:'#93c5fd'}}>🗂 {tDis}/{(v.temas||[]).length} temas</span>}
-                {cTotal>0&&<span style={{color:'#4ade80'}}>🤝 {cCump}/{cTotal} compromisos</span>}
-                {tareasV.length>0&&<span style={{color:'#C9A84C'}}>✅ {tareasV.length} tarea{tareasV.length!==1?'s':''}</span>}
+              {resp&&<p style={{fontSize:11,color:'#556b84',margin:'0 0 8px',display:'flex',alignItems:'center',gap:4,fontFamily:'Century Gothic,sans-serif'}}>
+                <Ico n="team" s={11} c="#556b84"/>{resp.nombre}
+              </p>}
+              {/* Barra de satisfacción visual */}
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <span style={{fontSize:10,color:'#556b84',fontFamily:'Century Gothic,sans-serif',width:68,flexShrink:0}}>Satisfaccion</span>
+                <div style={{flex:1,maxWidth:120,height:5,background:'rgba(30,45,66,.8)',borderRadius:3,overflow:'hidden'}}>
+                  <div style={{width:satPct+'%',height:'100%',borderRadius:3,background:satColor,boxShadow:`0 0 6px ${satColor}44`,transition:'width .5s ease'}}/>
+                </div>
+                <span style={{fontSize:10,color:satColor,fontWeight:700,fontFamily:'Century Gothic,sans-serif'}}>{SATISFACCION[v.satisfaccion]||v.satisfaccion}</span>
               </div>
             </div>
-            <div style={{display:'flex',gap:4,flexShrink:0,marginLeft:8,flexWrap:'wrap',justifyContent:'flex-end'}}>
+            {/* Acciones */}
+            <div style={{display:'flex',gap:4,flexShrink:0,flexWrap:'wrap',justifyContent:'flex-end'}}>
               <button title="Agendar Tarea" onClick={()=>abrirAgendarTarea(v)}
-                style={{background:'rgba(201,168,76,.1)',border:'1px solid rgba(201,168,76,.3)',
-                  borderRadius:6,padding:'4px 9px',cursor:'pointer',color:'#C9A84C',fontSize:11,fontWeight:600}}>
+                style={{background:'rgba(201,168,76,.08)',border:'1px solid rgba(201,168,76,.25)',
+                  borderRadius:8,padding:'5px 10px',cursor:'pointer',color:'#C9A84C',fontSize:10,fontWeight:600,
+                  fontFamily:'Century Gothic,sans-serif',transition:'all .25s'}}
+                onMouseOver={e=>e.currentTarget.style.borderColor='rgba(201,168,76,.5)'}
+                onMouseOut={e=>e.currentTarget.style.borderColor='rgba(201,168,76,.25)'}>
                 + Tarea
               </button>
-              <button title="Exportar PDF de Visita" onClick={()=>exportVisitaPDF(v)}
-                style={{background:'rgba(239,68,68,.1)',border:'1px solid rgba(239,68,68,.3)',
-                  borderRadius:6,padding:'4px 9px',cursor:'pointer',color:'#ef4444',fontSize:11,fontWeight:600,display:'flex',alignItems:'center',gap:4}}>
-                <Ico n="pdf" s={13}/> PDF
+              <button title="PDF" onClick={()=>exportVisitaPDF(v)}
+                style={{background:'rgba(239,68,68,.06)',border:'1px solid rgba(239,68,68,.2)',
+                  borderRadius:8,padding:'5px 10px',cursor:'pointer',color:'#ef4444',fontSize:10,fontWeight:600,
+                  display:'flex',alignItems:'center',gap:3,fontFamily:'Century Gothic,sans-serif'}}>
+                <Ico n="pdf" s={12}/> PDF
               </button>
-              <button title="Ver detalle" onClick={()=>setViewDetail(v)}
-                style={{background:'none',border:'1px solid #243447',borderRadius:6,
-                  padding:'4px 7px',cursor:'pointer',color:'#64748b',fontSize:12}}>👁</button>
-              <button className="btn btn-ghost btn-sm" onClick={()=>openEdit(v)}>
+              <button title="Detalle" onClick={()=>setViewDetail(v)}
+                style={{background:'rgba(96,165,250,.06)',border:'1px solid rgba(96,165,250,.2)',
+                  borderRadius:8,padding:'5px 8px',cursor:'pointer',color:'#60a5fa',fontSize:11}}>
+                <Ico n="info" s={12}/>
+              </button>
+              <button className="btn btn-ghost btn-sm" onClick={()=>openEdit(v)} style={{borderRadius:8}}>
                 <Ico n="edit" s={13}/>
               </button>
-              <button className="btn btn-d btn-sm" onClick={()=>setDelId(v.id)}>
+              <button className="btn btn-d btn-sm" onClick={()=>setDelId(v.id)} style={{borderRadius:8}}>
                 <Ico n="trash" s={13}/>
               </button>
             </div>
           </div>
 
-          {v.resultado&&<div style={{padding:'8px 12px',borderRadius:7,marginBottom:6,
-            background:'rgba(30,58,95,.2)',border:'1px solid #243447'}}>
-            <p style={{fontSize:10,color:'#64748b',margin:'0 0 3px',textTransform:'uppercase',letterSpacing:'.3px'}}>Resultado</p>
-            <p style={{color:'#cbd5e1',fontSize:12,margin:0,lineHeight:1.5}}>{v.resultado}</p>
+          {/* Badges de métricas */}
+          <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}}>
+            {tTotal>0&&<div style={{display:'flex',alignItems:'center',gap:5,padding:'5px 12px',borderRadius:8,
+              background:'rgba(96,165,250,.06)',border:'1px solid rgba(96,165,250,.12)'}}>
+              <Ico n="noteEdit" s={11} c="#60a5fa"/>
+              <span style={{fontSize:11,color:'#60a5fa',fontWeight:600,fontFamily:'Century Gothic,sans-serif'}}>{tDis}/{tTotal}</span>
+              <span style={{fontSize:10,color:'#556b84',fontFamily:'Century Gothic,sans-serif'}}>temas</span>
+            </div>}
+            {cTotal>0&&<div style={{display:'flex',alignItems:'center',gap:5,padding:'5px 12px',borderRadius:8,
+              background:cCump===cTotal?'rgba(74,222,128,.06)':'rgba(201,168,76,.06)',
+              border:cCump===cTotal?'1px solid rgba(74,222,128,.12)':'1px solid rgba(201,168,76,.12)'}}>
+              <Ico n="check" s={11} c={cCump===cTotal?'#4ade80':'#C9A84C'}/>
+              <span style={{fontSize:11,color:cCump===cTotal?'#4ade80':'#C9A84C',fontWeight:600,fontFamily:'Century Gothic,sans-serif'}}>{cCump}/{cTotal}</span>
+              <span style={{fontSize:10,color:'#556b84',fontFamily:'Century Gothic,sans-serif'}}>compromisos</span>
+            </div>}
+            {tareasV.length>0&&<div style={{display:'flex',alignItems:'center',gap:5,padding:'5px 12px',borderRadius:8,
+              background:'rgba(201,168,76,.06)',border:'1px solid rgba(201,168,76,.12)'}}>
+              <Ico n="tasks" s={11} c="#C9A84C"/>
+              <span style={{fontSize:11,color:'#C9A84C',fontWeight:600,fontFamily:'Century Gothic,sans-serif'}}>{tareasV.length}</span>
+              <span style={{fontSize:10,color:'#556b84',fontFamily:'Century Gothic,sans-serif'}}>tarea{tareasV.length!==1?'s':''}</span>
+            </div>}
+          </div>
+
+          {/* Resultado */}
+          {v.resultado&&<div style={{padding:'10px 14px',borderRadius:10,marginBottom:8,
+            background:'linear-gradient(135deg,rgba(30,58,95,.2),rgba(15,25,35,.4))',border:'1px solid rgba(36,52,71,.6)'}}>
+            <p style={{fontSize:9,color:'#556b84',margin:'0 0 4px',textTransform:'uppercase',letterSpacing:'.4px',fontWeight:600,fontFamily:'Century Gothic,sans-serif'}}>Resultado</p>
+            <p style={{color:'#cbd5e1',fontSize:12,margin:0,lineHeight:1.6,fontFamily:'Century Gothic,sans-serif'}}>{v.resultado}</p>
           </div>}
 
-          {(v.temas||[]).length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:5,marginTop:5}}>
+          {/* Temas tratados */}
+          {(v.temas||[]).length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:5,marginTop:6}}>
             {(v.temas||[]).slice(0,5).map((t,i)=>(
-              <span key={i} style={{fontSize:10,padding:'2px 8px',borderRadius:99,
-                background:t.discutido?'rgba(74,222,128,.12)':'rgba(51,65,85,.4)',
-                color:t.discutido?'#4ade80':'#64748b',
-                border:`1px solid ${t.discutido?'rgba(74,222,128,.25)':'#243447'}`}}>
+              <span key={i} style={{fontSize:10,padding:'3px 10px',borderRadius:99,fontFamily:'Century Gothic,sans-serif',
+                background:t.discutido?'rgba(74,222,128,.1)':'rgba(51,65,85,.3)',
+                color:t.discutido?'#4ade80':'#556b84',
+                border:`1px solid ${t.discutido?'rgba(74,222,128,.2)':'rgba(36,52,71,.6)'}`}}>
                 {t.discutido?'✓ ':'○ '}{t.descripcion.substring(0,28)}
               </span>
             ))}
-            {(v.temas||[]).length>5&&<span style={{fontSize:10,color:'#475569'}}>+{(v.temas||[]).length-5} más</span>}
+            {(v.temas||[]).length>5&&<span style={{fontSize:10,color:'#475569',fontFamily:'Century Gothic,sans-serif'}}>+{(v.temas||[]).length-5} mas</span>}
           </div>}
 
-          {tareasV.length>0&&<div style={{marginTop:7,padding:'6px 10px',borderRadius:6,
-            background:'rgba(201,168,76,.06)',border:'1px solid rgba(201,168,76,.2)'}}>
-            <p style={{fontSize:10,color:'#C9A84C',fontWeight:700,margin:'0 0 3px'}}>Tareas ({tareasV.length})</p>
+          {/* Tareas vinculadas */}
+          {tareasV.length>0&&<div style={{marginTop:8,padding:'8px 12px',borderRadius:10,
+            background:'linear-gradient(135deg,rgba(201,168,76,.04),rgba(201,168,76,.01))',border:'1px solid rgba(201,168,76,.15)'}}>
+            <p style={{fontSize:9,color:'#C9A84C',fontWeight:700,margin:'0 0 5px',textTransform:'uppercase',letterSpacing:'.3px',fontFamily:'Century Gothic,sans-serif'}}>
+              Tareas ({tareasV.length})
+            </p>
             {tareasV.slice(0,3).map(t=>(
               <div key={t.id} style={{display:'flex',justifyContent:'space-between',fontSize:11,
-                color:'#94a3b8',padding:'2px 0'}}>
+                color:'#94a3b8',padding:'3px 0',fontFamily:'Century Gothic,sans-serif'}}>
                 <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{t.titulo}</span>
                 <SBadge s={t.estado}/>
               </div>
             ))}
-            {tareasV.length>3&&<p style={{fontSize:10,color:'#475569',margin:'2px 0 0'}}>+{tareasV.length-3} más</p>}
+            {tareasV.length>3&&<p style={{fontSize:10,color:'#475569',margin:'3px 0 0',fontFamily:'Century Gothic,sans-serif'}}>+{tareasV.length-3} mas</p>}
           </div>}
         </div>;
       })}
@@ -7563,9 +7729,9 @@ const VisitaCliente = () => {
         </div>
         <div style={{display:'flex',gap:8}}>
           <button className="btn btn-ghost btn-sm" onClick={()=>setOpen(false)}>Cancelar</button>
-          <button className="btn btn-g btn-sm" onClick={saveVisita}>
+          <button className="btn btn-g btn-sm" onClick={saveVisita} disabled={saving}>
             <Ico n="check" s={14}/>
-            {form.id?'Actualizar Visita':'Guardar Visita'}
+            {saving?'Guardando...':form.id?'Actualizar Visita':'Guardar Visita'}
           </button>
         </div>
       </div>
@@ -9606,64 +9772,87 @@ const Cobros = () => {
     porCobrar:facturas.filter(f=>!['Pagada','pagada','Paz y Salvo','Paz Y Salvo'].includes(f.estado)).reduce((a,f)=>a+(Number(f.valor)||0)*(f.iva?1.19:1),0),
   }),[facturas]);
 
-  return <div className="fade">
-    <div className="grid-4" style={{marginBottom:14}}>
+  return <div className="fade dash-premium">
+    {/* ── KPIs Premium ──────────────────────────────────────── */}
+    <div className="grid-4 kpi-row-top" style={{marginBottom:16}}>
       <KPI label="Total Cuentas" val={tots.total} ico="bill" color="blue"/>
-      <KPI label="Total Facturado" val={fmt.cop(tots.facturado)} ico="money" color="gold"/>
+      <KPI label="Facturado" val={fmt.cop(tots.facturado)} ico="money" color="gold"/>
       <KPI label="Cobrado" val={fmt.cop(tots.cobrado)} ico="check" color="green"/>
       <KPI label="Por Cobrar" val={fmt.cop(tots.porCobrar)} ico="clock" color="red"/>
     </div>
+
+    {/* ── Barra de controles ────────────────────────────────── */}
     <div style={{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap',alignItems:'center'}}>
-      <button className="btn btn-p btn-sm" onClick={openNew}><Ico n="plus" s={14}/>Nueva Cuenta</button>
+      <button className="btn btn-p btn-sm" onClick={openNew} style={{fontFamily:'Century Gothic,sans-serif'}}><Ico n="plus" s={14}/>Nueva Cuenta</button>
       {['','Pendiente','Enviada','Pagada','Vencida','Paz y Salvo'].map(s=>(
-        <button key={s} className={clx('chip',filtEst===s&&'active')} onClick={()=>setFiltEst(s)}>{s||'Todos'}</button>
+        <button key={s} onClick={()=>setFiltEst(s)} style={{padding:'5px 14px',borderRadius:20,fontSize:11,fontWeight:600,cursor:'pointer',
+          fontFamily:'Century Gothic,sans-serif',transition:'all .25s',border:'1px solid',
+          borderColor:filtEst===s?'#C9A84C':'rgba(36,52,71,.6)',
+          background:filtEst===s?'rgba(201,168,76,.1)':'transparent',
+          color:filtEst===s?'#C9A84C':'#556b84'}}>{s||'Todos'}</button>
       ))}
-      {/* Envío masivo: solo pendientes/vencidas */}
       <button className="btn btn-ghost btn-sm" onClick={enviarEmailsMasivo}
         title="Genera PDF y prepara email para todas las facturas Pendientes y Vencidas"
-        style={{marginLeft:'auto',color:'#60a5fa',border:'1px solid #243447'}}>
+        style={{marginLeft:'auto',color:'#60a5fa',border:'1px solid rgba(96,165,250,.15)',borderRadius:10,fontFamily:'Century Gothic,sans-serif',
+          background:'rgba(96,165,250,.05)',padding:'6px 14px',fontSize:11,fontWeight:600}}>
         <Ico n="mail" s={13}/>Enviar Pendientes ({filtered.filter(f=>f.estado==='Pendiente'||f.estado==='Vencida').length})
       </button>
     </div>
 
-    {/* D-item26: Filtros avanzados — año, meses, rango de fechas */}
-    <div style={{marginBottom:14,padding:'12px 14px',borderRadius:10,border:'1px solid #243447',background:'rgba(15,25,35,.6)'}}>
-      <p style={{fontSize:11,fontWeight:700,color:'#64748b',textTransform:'uppercase',letterSpacing:'.4px',margin:'0 0 10px'}}>🔍 Filtros Avanzados de Consolidación</p>
-      <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'flex-end'}}>
-        {/* Año */}
+    {/* ── Filtros avanzados premium ────────────────────────── */}
+    <div className="dash-card" style={{marginBottom:16,padding:'16px 20px'}}>
+      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
+        <div style={{width:28,height:28,borderRadius:8,background:'linear-gradient(135deg,rgba(96,165,250,.12),rgba(96,165,250,.04))',
+          border:'1px solid rgba(96,165,250,.18)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <Ico n="analytics" s={13} c="#60a5fa"/>
+        </div>
+        <h3 className="dash-section-title" style={{margin:0,fontSize:13}}>Filtros de Consolidacion</h3>
+        {(filtAnio||filtMeses.length||filtFIni||filtFFin)&&
+          <button type="button" onClick={()=>{setFiltAnio('');setFiltMeses([]);setFiltFIni('');setFiltFFin('');}}
+            style={{fontSize:10,color:'#ef4444',background:'rgba(239,68,68,.06)',border:'1px solid rgba(239,68,68,.15)',
+              borderRadius:8,padding:'4px 12px',cursor:'pointer',fontFamily:'Century Gothic,sans-serif',fontWeight:600,
+              marginLeft:'auto',transition:'all .25s'}}>
+            Limpiar filtros
+          </button>
+        }
+        <div style={{marginLeft:filtAnio||filtMeses.length||filtFIni||filtFFin?'0':'auto',
+          padding:'4px 14px',borderRadius:20,background:'rgba(96,165,250,.08)',border:'1px solid rgba(96,165,250,.15)'}}>
+          <span style={{fontSize:11,color:'#60a5fa',fontWeight:700,fontFamily:'Century Gothic,sans-serif'}}>{filtered.length}</span>
+          <span style={{fontSize:10,color:'#556b84',fontFamily:'Century Gothic,sans-serif',marginLeft:4}}>resultado{filtered.length!==1?'s':''}</span>
+        </div>
+      </div>
+      <div style={{display:'flex',gap:14,flexWrap:'wrap',alignItems:'flex-end'}}>
         <div>
-          <p style={{fontSize:10,color:'#64748b',margin:'0 0 4px'}}>Año</p>
-          <select className="inp" style={{padding:'4px 10px',fontSize:12,width:90}} value={filtAnio} onChange={e=>setFiltAnio(e.target.value)}>
+          <p style={{fontSize:10,color:'#556b84',margin:'0 0 5px',fontFamily:'Century Gothic,sans-serif',fontWeight:600,letterSpacing:'.3px'}}>Ano</p>
+          <select className="inp" style={{padding:'6px 12px',fontSize:12,width:95,fontFamily:'Century Gothic,sans-serif'}} value={filtAnio} onChange={e=>setFiltAnio(e.target.value)}>
             <option value="">Todos</option>
             {aniosDisponibles.map(a=><option key={a} value={a}>{a}</option>)}
           </select>
         </div>
-        {/* Rango de fechas */}
         <div>
-          <p style={{fontSize:10,color:'#64748b',margin:'0 0 4px'}}>Desde</p>
-          <input type="date" className="inp" style={{padding:'4px 8px',fontSize:12,width:130}} value={filtFIni} onChange={e=>setFiltFIni(e.target.value)}/>
+          <p style={{fontSize:10,color:'#556b84',margin:'0 0 5px',fontFamily:'Century Gothic,sans-serif',fontWeight:600,letterSpacing:'.3px'}}>Desde</p>
+          <input type="date" className="inp" style={{padding:'6px 10px',fontSize:12,width:140,fontFamily:'Century Gothic,sans-serif'}} value={filtFIni} onChange={e=>setFiltFIni(e.target.value)}/>
         </div>
         <div>
-          <p style={{fontSize:10,color:'#64748b',margin:'0 0 4px'}}>Hasta</p>
-          <input type="date" className="inp" style={{padding:'4px 8px',fontSize:12,width:130}} value={filtFFin} onChange={e=>setFiltFFin(e.target.value)}/>
+          <p style={{fontSize:10,color:'#556b84',margin:'0 0 5px',fontFamily:'Century Gothic,sans-serif',fontWeight:600,letterSpacing:'.3px'}}>Hasta</p>
+          <input type="date" className="inp" style={{padding:'6px 10px',fontSize:12,width:140,fontFamily:'Century Gothic,sans-serif'}} value={filtFFin} onChange={e=>setFiltFFin(e.target.value)}/>
         </div>
-        {/* Meses múltiples */}
-        <div>
-          <p style={{fontSize:10,color:'#64748b',margin:'0 0 4px'}}>Meses</p>
-          <div style={{display:'flex',gap:3,flexWrap:'wrap',maxWidth:280}}>
+        <div style={{flex:1,minWidth:200}}>
+          <p style={{fontSize:10,color:'#556b84',margin:'0 0 5px',fontFamily:'Century Gothic,sans-serif',fontWeight:600,letterSpacing:'.3px'}}>Meses</p>
+          <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
             {MESES_LABELS.map((l,i)=>(
               <button key={i+1} type="button" onClick={()=>toggleMes(i+1)}
-                style={{padding:'3px 7px',fontSize:10,fontWeight:600,borderRadius:5,cursor:'pointer',border:'1px solid',
-                  borderColor:filtMeses.includes(i+1)?'#C9A84C':'#334155',
-                  background:filtMeses.includes(i+1)?'rgba(201,168,76,.15)':'transparent',
-                  color:filtMeses.includes(i+1)?'#C9A84C':'#64748b'}}>
+                style={{padding:'4px 8px',fontSize:10,fontWeight:700,borderRadius:6,cursor:'pointer',border:'1px solid',
+                  fontFamily:'Century Gothic,sans-serif',transition:'all .2s',
+                  borderColor:filtMeses.includes(i+1)?'#C9A84C':'rgba(36,52,71,.6)',
+                  background:filtMeses.includes(i+1)?'rgba(201,168,76,.12)':'rgba(15,25,35,.5)',
+                  color:filtMeses.includes(i+1)?'#C9A84C':'#556b84',
+                  boxShadow:filtMeses.includes(i+1)?'0 0 8px rgba(201,168,76,.1)':'none'}}>
                 {l}
               </button>
             ))}
           </div>
         </div>
-        {(filtAnio||filtMeses.length||filtFIni||filtFFin)&&<button type="button" onClick={()=>{setFiltAnio('');setFiltMeses([]);setFiltFIni('');setFiltFFin('');}} style={{fontSize:11,color:'#ef4444',background:'none',border:'1px solid rgba(239,68,68,.3)',borderRadius:6,padding:'4px 10px',cursor:'pointer'}}>✕ Limpiar</button>}
-        <div style={{marginLeft:'auto',fontSize:11,color:'#60a5fa',fontWeight:600}}>{filtered.length} resultado{filtered.length!==1?'s':''}</div>
       </div>
     </div>
 
@@ -9785,6 +9974,128 @@ const Cobros = () => {
         </tbody>
       </table>
     </div>
+
+    {/* ═══ HISTORIAL DE FACTURACIÓN POR CLIENTE — PREMIUM ═══ */}
+    {(()=>{
+      const PAGADOS_H = ['Pagada','pagada','Paz y Salvo','Paz Y Salvo'];
+      const clientesConFacturas = clientes.filter(c=>facturas.some(f=>f.clienteId===c.id))
+        .map(c=>{
+          const cf = facturas.filter(f=>f.clienteId===c.id).sort((a,b)=>(b.fechaEmision||'').localeCompare(a.fechaEmision||''));
+          const totalFact = cf.reduce((a,f)=>a+(Number(f.valor)||0)*(f.iva?1.19:1),0);
+          const totalCob  = cf.filter(f=>PAGADOS_H.includes(f.estado)).reduce((a,f)=>a+(Number(f.valor)||0)*(f.iva?1.19:1),0);
+          const pctRecaudo = totalFact>0?Math.round(totalCob/totalFact*100):0;
+          return {...c, facturas:cf, totalFact, totalCob, porCobrar:totalFact-totalCob, pctRecaudo};
+        }).sort((a,b)=>b.facturas.length-a.facturas.length);
+
+      if(clientesConFacturas.length===0) return null;
+
+      return <div style={{marginTop:20}}>
+        <div className="dash-card" style={{marginBottom:16,padding:'16px 20px'}}>
+          <h3 className="dash-section-title" style={{margin:'0 0 4px'}}>
+            <Ico n="clients" s={15} c="#C9A84C"/> Historial de Facturacion por Cliente
+          </h3>
+          <p style={{fontSize:11,color:'#556b84',margin:'0 0 0 24px',fontFamily:'Century Gothic,sans-serif'}}>
+            {clientesConFacturas.length} cliente{clientesConFacturas.length!==1?'s':''} con facturacion registrada
+          </p>
+        </div>
+
+        {clientesConFacturas.map(c=>(
+          <details key={c.id} className="dash-client-card" style={{marginBottom:10,padding:0,cursor:'default'}}>
+            <summary style={{padding:'16px 20px',cursor:'pointer',display:'flex',alignItems:'center',gap:14,userSelect:'none',listStyle:'none'}}>
+              {/* Avatar */}
+              <div style={{width:42,height:42,borderRadius:12,flexShrink:0,
+                background:'linear-gradient(145deg,rgba(201,168,76,.12),rgba(201,168,76,.04))',
+                border:'1px solid rgba(201,168,76,.18)',display:'flex',alignItems:'center',justifyContent:'center',
+                boxShadow:'0 2px 8px rgba(201,168,76,.08)'}}>
+                <span style={{fontSize:16,fontWeight:800,color:'#C9A84C',fontFamily:'Century Gothic,sans-serif'}}>{(c.nombre||'?')[0].toUpperCase()}</span>
+              </div>
+              {/* Info */}
+              <div style={{flex:1,minWidth:0}}>
+                <p style={{margin:0,fontSize:14,fontWeight:700,color:'#e8ecf1',fontFamily:'Century Gothic,sans-serif',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.nombre}</p>
+                <div style={{display:'flex',alignItems:'center',gap:8,marginTop:5}}>
+                  <span style={{fontSize:10,color:'#556b84',fontFamily:'Century Gothic,sans-serif'}}>{c.facturas.length} factura{c.facturas.length!==1?'s':''}</span>
+                  <span style={{width:3,height:3,borderRadius:'50%',background:'#334155'}}/>
+                  <span style={{fontSize:10,color:'#556b84',fontFamily:'Century Gothic,sans-serif'}}>Ultima: {fmt.date(c.facturas[0]?.fechaEmision)}</span>
+                </div>
+                {/* Barra de recaudo */}
+                <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6}}>
+                  <div style={{flex:1,maxWidth:160,height:4,background:'rgba(30,45,66,.8)',borderRadius:2,overflow:'hidden'}}>
+                    <div style={{width:c.pctRecaudo+'%',height:'100%',borderRadius:2,transition:'width .5s',
+                      background:c.pctRecaudo>=100?'#4ade80':c.pctRecaudo>=50?'#C9A84C':'#f87171',
+                      boxShadow:`0 0 6px ${c.pctRecaudo>=100?'rgba(74,222,128,.3)':c.pctRecaudo>=50?'rgba(201,168,76,.3)':'rgba(248,113,113,.3)'}`}}/>
+                  </div>
+                  <span style={{fontSize:10,fontWeight:700,fontFamily:'Century Gothic,sans-serif',
+                    color:c.pctRecaudo>=100?'#4ade80':c.pctRecaudo>=50?'#C9A84C':'#f87171'}}>{c.pctRecaudo}% recaudo</span>
+                </div>
+              </div>
+              {/* Métricas */}
+              <div style={{display:'flex',gap:10,alignItems:'center',flexShrink:0}}>
+                {[
+                  {label:'Facturado',v:c.totalFact,color:'#C9A84C'},
+                  {label:'Cobrado',v:c.totalCob,color:'#4ade80'},
+                  {label:'Por Cobrar',v:c.porCobrar,color:c.porCobrar>0?'#f87171':'#4ade80'},
+                ].map(m=>(
+                  <div key={m.label} style={{textAlign:'center',padding:'6px 10px',borderRadius:8,
+                    background:'rgba(15,25,35,.5)',border:'1px solid rgba(36,52,71,.5)',minWidth:80}}>
+                    <p style={{margin:0,fontSize:12,fontWeight:700,color:m.color,fontFamily:'Century Gothic,sans-serif'}}>{fmt.cop(m.v)}</p>
+                    <p style={{margin:'2px 0 0',fontSize:9,color:'#475569',fontFamily:'Century Gothic,sans-serif'}}>{m.label}</p>
+                  </div>
+                ))}
+                <Ico n="down" s={12} c="#556b84"/>
+              </div>
+            </summary>
+            {/* Timeline de facturas */}
+            <div style={{padding:'6px 20px 18px',borderTop:'1px solid rgba(36,52,71,.4)'}}>
+              {c.facturas.map((f,fi)=>{
+                const v=Number(f.valor)||0; const total=v*(f.iva?1.19:1);
+                const isPagada = PAGADOS_H.includes(f.estado);
+                const dotColor = isPagada?'#4ade80':f.estado==='Vencida'?'#f87171':f.estado==='Enviada'?'#60a5fa':'#C9A84C';
+                return <div key={f.id} style={{display:'flex',gap:14,padding:'12px 0',
+                  borderBottom:fi<c.facturas.length-1?'1px solid rgba(36,52,71,.3)':'none',alignItems:'center',
+                  transition:'background .2s',borderRadius:6}}
+                  onMouseOver={e=>e.currentTarget.style.background='rgba(201,168,76,.02)'}
+                  onMouseOut={e=>e.currentTarget.style.background='transparent'}>
+                  {/* Timeline dot + line */}
+                  <div style={{display:'flex',flexDirection:'column',alignItems:'center',flexShrink:0,width:20}}>
+                    <div style={{width:10,height:10,borderRadius:'50%',background:dotColor,
+                      boxShadow:`0 0 8px ${dotColor}44`,border:`2px solid ${dotColor}33`}}/>
+                    {fi<c.facturas.length-1&&<div style={{width:1,height:24,
+                      background:'linear-gradient(180deg,rgba(36,52,71,.6),rgba(36,52,71,.2))',marginTop:2}}/>}
+                  </div>
+                  {/* Content */}
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                      <span style={{fontFamily:'monospace',color:'#C9A84C',fontWeight:700,fontSize:12,
+                        background:'rgba(201,168,76,.06)',padding:'2px 8px',borderRadius:4,border:'1px solid rgba(201,168,76,.1)'}}>#{f.numero}</span>
+                      <SBadge s={f.estado}/>
+                      <span style={{fontSize:11,color:'#556b84',fontFamily:'Century Gothic,sans-serif'}}>{fmt.date(f.fechaEmision)}</span>
+                      {f.fechaVen&&<span style={{fontSize:10,color:'#475569',fontFamily:'Century Gothic,sans-serif'}}>Vence: {fmt.date(f.fechaVen)}</span>}
+                      {f.fechaPago&&<span style={{fontSize:10,color:'#4ade80',fontFamily:'Century Gothic,sans-serif'}}>Pagado: {fmt.date(f.fechaPago)}</span>}
+                    </div>
+                    {f.concepto&&<p style={{margin:'4px 0 0',fontSize:11,color:'#94a3b8',fontFamily:'Century Gothic,sans-serif',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{f.concepto}</p>}
+                  </div>
+                  {/* Value */}
+                  <div style={{textAlign:'right',flexShrink:0}}>
+                    <p style={{margin:0,fontSize:14,fontWeight:700,fontFamily:'Century Gothic,sans-serif',
+                      color:isPagada?'#4ade80':'#e8ecf1'}}>{fmt.cop(total)}</p>
+                    {f.formaPago&&<p style={{margin:'2px 0 0',fontSize:9,color:'#556b84',fontFamily:'Century Gothic,sans-serif'}}>{f.formaPago}</p>}
+                  </div>
+                  {/* Actions */}
+                  <div style={{display:'flex',gap:4,flexShrink:0}}>
+                    <button className="btn btn-ghost btn-sm" onClick={()=>openEdit(f)} title="Editar"
+                      style={{borderRadius:8,padding:'4px 6px'}}><Ico n="edit" s={12}/></button>
+                    <button className="btn btn-ghost btn-sm" onClick={()=>exportPDF(f)} title="PDF"
+                      style={{borderRadius:8,padding:'4px 6px'}}><Ico n="down" s={12}/></button>
+                    <button className="btn btn-ghost btn-sm" onClick={()=>enviarEmail(f)} title="Email"
+                      style={{borderRadius:8,padding:'4px 6px'}}><Ico n="mail" s={12}/></button>
+                  </div>
+                </div>;
+              })}
+            </div>
+          </details>
+        ))}
+      </div>;
+    })()}
 
     <Modal open={open} onClose={()=>setOpen(false)} title={form.id?'Editar Cuenta':'Nueva Cuenta de Cobro'} wide>
       <div className="grid-2">
@@ -10994,7 +11305,7 @@ const Exportar = () => {
 
       // ── UTILIDADES ───────────────────────────────────────────
       const chkPage = (needed=15) => {
-        if(y+needed > PH-18) { doc.addPage(); page++; drawFooter(); y = 22; }
+        if(y+needed > PH-18) { doc.addPage(); page++; y = 22; }
       };
 
       const setColor = (rgb, text=false) => {
@@ -11051,28 +11362,46 @@ const Exportar = () => {
 
       const sectionHeader = (title, icon='') => {
         chkPage(20);
-        // ITEM-6: Margen superior para respirar antes de cada sección
         y += 2;
+        // Sombra simulada (rect gris offset)
+        doc.setFillColor(200,208,218); doc.rect(M+0.5, y+0.5, IW, 11, 'F');
+        // Cuerpo del encabezado
         setColor(C.navyR); doc.rect(M, y, IW, 11, 'F');
-        // Acento gold izquierdo
-        setColor(C.goldR); doc.rect(M, y, 3, 11, 'F');
+        // Degradado inferior (simulado)
+        doc.setFillColor(Math.max(C.navyR[0]-8,0),Math.max(C.navyR[1]-12,0),Math.max(C.navyR[2]-18,0));
+        doc.rect(M, y+8, IW, 3, 'F');
+        // Acento dorado izquierdo más ancho
+        setColor(C.goldR); doc.rect(M, y, 4, 11, 'F');
+        // Línea dorada inferior decorativa
+        doc.setFillColor(ACENTO_R[0],ACENTO_R[1],ACENTO_R[2]);
+        doc.rect(M+4, y+10.5, Math.min(40, IW/3), 0.5, 'F');
+        // Texto del título
         setColor(ACENTO_R,true); doc.setFont(FF,'bold'); doc.setFontSize(FS(9.5));
-        txt(cleanTxt(title), M+7, y+7.5);
+        txt(cleanTxt(title), M+8, y+7.5);
         y += 15 + SEC_GAP * 0.3;
         doc.setFont(FF,'normal'); setColor(C.textR,true); doc.setFontSize(FS(8.5));
       };
 
       const kpiBox = (label,val,unit,x,yy,w,color=C.navyR) => {
-        // ITEM-6: kpiBox con mejor jerarquía tipográfica y margen interior
+        // Sombra simulada
+        doc.setFillColor(215,220,228); doc.rect(x+0.4, yy+0.4, w, 20, 'F');
+        // Fondo degradado simulado
         setColor([248,250,252]); doc.rect(x,yy,w,20,'F');
-        doc.setDrawColor(...C.lineR); doc.setLineWidth(.3); doc.rect(x,yy,w,20,'S');
-        // Barra de color izquierda más visible
-        setColor(color); doc.rect(x,yy,3.5,20,'F');
-        setColor(C.mutedR,true); doc.setFontSize(6.5); doc.setFont('helvetica','normal');
-        txt(label,x+7,yy+7);
-        setColor(C.textR,true); doc.setFontSize(12); doc.setFont('helvetica','bold');
-        txt(val,x+7,yy+16);
-        if(unit){ doc.setFontSize(6.5); setColor(C.mutedR,true); txt(unit,x+7+doc.getTextWidth(String(val))+2,yy+16); }
+        doc.setFillColor(242,245,249); doc.rect(x,yy+14,w,6,'F');
+        // Marco
+        doc.setDrawColor(...C.lineR); doc.setLineWidth(.25); doc.rect(x,yy,w,20,'S');
+        // Barra de color izquierda con degradado
+        setColor(color); doc.rect(x,yy,4,20,'F');
+        // Highlight superior de la barra (más claro)
+        doc.setFillColor(Math.min(color[0]+40,255),Math.min(color[1]+40,255),Math.min(color[2]+40,255));
+        doc.rect(x,yy,4,4,'F');
+        // Label
+        setColor(C.mutedR,true); doc.setFontSize(6.5); doc.setFont(FF,'bold');
+        txt(label,x+8,yy+7);
+        // Valor principal
+        setColor(C.textR,true); doc.setFontSize(13); doc.setFont(FF,'bold');
+        txt(val,x+8,yy+16);
+        if(unit){ doc.setFontSize(6.5); setColor(C.mutedR,true); doc.setFont(FF,'normal'); txt(unit,x+8+doc.getTextWidth(String(val))+2,yy+16); }
       };
 
       const tableRow = (cols, widths, yy, header=false, alt=false) => {
@@ -11196,8 +11525,14 @@ const Exportar = () => {
       // ══════════════════════════════════════════════════════════
       const LOGO_IC_P4 = 'data:image/jpeg;base64,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';
       const logoSrcP4  = cfg.logo || LOGO_IC_P4;
+
+      // ── Banda navy superior con degradado y franja dorada ──
       setColor(C.navyR); doc.rect(0,0,PW,50,'F');
+      doc.setFillColor(Math.max(C.navyR[0]-10,0), Math.max(C.navyR[1]-15,0), Math.max(C.navyR[2]-20,0));
+      doc.rect(0,42,PW,8,'F');
+      doc.setFillColor(180,148,56); doc.rect(0,50,PW,1,'F');
       setColor(C.goldR); doc.rect(0,46,PW,4,'F');
+      doc.setFillColor(220,195,110); doc.rect(0,46,PW,0.6,'F');
       // MEJORA-4: Logo con detección automática de formato y soporte de transparencia (PNG, JPEG, WebP, SVG)
       try{
         const getImgFmt = (src) => {
@@ -11317,7 +11652,10 @@ const Exportar = () => {
       y += 8; hrLine(y); y += 8;
 
       // ── PÁGINA 2 — TAREAS ────────────────────────────────────
-      if((tipo!=='ejecutivo' || tareasF.length>0) && pCfg.mostrarSeccionTareas !== false && secVisible('tareas')){
+      // FIX DUPLICACIÓN: Para tipo 'integrante' (miembro), esta sección se omite
+      // porque el bloque dedicado "ACTIVIDADES / TAREAS ASIGNADAS" (más adelante)
+      // ya renderiza el mismo dataset (tareasF) con mayor detalle y perfil del integrante.
+      if(!miembro && (tipo!=='ejecutivo' || tareasF.length>0) && pCfg.mostrarSeccionTareas !== false && secVisible('tareas')){
         chkPage(20);
         sectionHeader('TAREAS ('+tareasF.length+')');
 
@@ -11947,8 +12285,13 @@ const Exportar = () => {
         y += 6;
       }
 
-      // Footer en todas las páginas
-      drawFooter();
+      // Footer en TODAS las páginas (excepto portada = pág 1)
+      const totalPages = doc.getNumberOfPages();
+      for(let pg=2; pg<=totalPages; pg++){
+        doc.setPage(pg);
+        page = pg; // sincronizar variable de numeración
+        drawFooter();
+      }
 
       // Guardar
       const fname = 'Informe_'+(miembro?.nombre||cli?.nombre||tipo)+'_'+hoy.toISOString().split('T')[0]+'.pdf';
