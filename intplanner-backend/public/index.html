@@ -1160,6 +1160,52 @@ textarea.inp{resize:vertical;min-height:80px}
 .login-network{position:absolute;pointer-events:none;opacity:.12}
 .login-network circle{animation:loginNodePulse 3s ease-in-out infinite}
 .login-network line{stroke-dasharray:8 4;animation:loginConnectDash 6s linear infinite}
+
+/* ═══ CALENDARIO PREMIUM ══════════════════════════════════════ */
+.cal-premium .cal-grid{
+  display:grid;grid-template-columns:repeat(7,1fr);gap:4px;
+}
+.cal-premium .cal-cell{
+  border-radius:8px;padding:4px;height:90px;
+  border:1px solid rgba(36,52,71,.6);background:#0f1923;
+  display:flex;flex-direction:column;overflow:hidden;
+  transition:all .2s ease;cursor:default;position:relative;
+}
+.cal-premium .cal-cell:hover{border-color:rgba(201,168,76,.2);background:rgba(15,25,35,.95)}
+.cal-premium .cal-cell.cal-hoy{border-color:#C9A84C;background:rgba(201,168,76,.06)}
+.cal-premium .cal-cell.cal-hoy:hover{background:rgba(201,168,76,.1)}
+.cal-premium .cal-cell.cal-has{cursor:pointer}
+.cal-premium .cal-day{
+  font-size:11px;font-weight:500;color:#4d6480;text-align:right;padding:0 2px 3px;
+  display:flex;align-items:center;justify-content:flex-end;gap:4px;flex-shrink:0;
+  font-family:'Century Gothic','Segoe UI',sans-serif;
+}
+.cal-premium .cal-cell.cal-hoy .cal-day{color:#C9A84C;font-weight:700}
+.cal-premium .cal-items{flex:1;overflow:hidden;display:flex;flex-direction:column;gap:1px}
+.cal-premium .cal-chip{
+  font-size:9px;padding:1px 4px;border-radius:3px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  flex-shrink:0;line-height:14px;font-family:'Century Gothic','Segoe UI',sans-serif;
+}
+.cal-premium .cal-more{
+  font-size:9px;color:#C9A84C;text-align:center;font-weight:700;
+  flex-shrink:0;line-height:14px;font-family:'Century Gothic','Segoe UI',sans-serif;
+}
+.cal-premium .cal-weekday{
+  text-align:center;font-size:10px;font-weight:700;color:#4d6480;padding:6px 0;
+  font-family:'Century Gothic','Segoe UI',sans-serif;letter-spacing:.5px;text-transform:uppercase;
+}
+@media(max-width:768px){
+  .cal-premium .cal-cell{height:70px;padding:3px}
+  .cal-premium .cal-chip{font-size:8px;padding:1px 3px}
+  .cal-premium .cal-day{font-size:10px}
+}
+@media(max-width:480px){
+  .cal-premium .cal-cell{height:56px;padding:2px}
+  .cal-premium .cal-chip{display:none}
+  .cal-premium .cal-more{display:none}
+  .cal-premium .cal-day .cal-badge{font-size:8px}
+}
 /* Card de login */
 .login-card{
   position:relative;z-index:10;width:100%;max-width:420px;margin:0 16px;padding:40px 36px 32px;
@@ -5928,101 +5974,98 @@ const Calendario = () => {
 
   const esReunion = tipoEvento==='reunion';
 
-  return <div className="fade">
+  return <div className="fade dash-premium cal-premium">
     <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginBottom:14}}>
       <button className="btn btn-ghost btn-sm" onClick={()=>setFecha(new Date(y,m-1))}><Ico n="chevL" s={16}/></button>
       <div style={{textAlign:'center',minWidth:200}}>
-        <span className="sy" style={{fontWeight:700,color:'#fff',fontSize:16}}>{MESES[m]} {y}</span>
-        {tareasMes.length>0&&<span style={{fontSize:11,color:'#C9A84C',marginLeft:8,fontWeight:600}}>{tareasMes.length} evento{tareasMes.length!==1?'s':''}</span>}
+        <span style={{fontWeight:700,color:'#fff',fontSize:16,fontFamily:'Century Gothic,sans-serif'}}>{MESES[m]} {y}</span>
+        {tareasMes.length>0&&<span style={{fontSize:11,color:'#C9A84C',marginLeft:8,fontWeight:600,fontFamily:'Century Gothic,sans-serif'}}>{tareasMes.length} evento{tareasMes.length!==1?'s':''}</span>}
       </div>
       <button className="btn btn-ghost btn-sm" onClick={()=>setFecha(new Date(y,m+1))}><Ico n="chevR" s={16}/></button>
-      <button className="btn btn-ghost btn-sm" onClick={()=>setFecha(new Date())}>Hoy</button>
+      <button className="btn btn-ghost btn-sm" onClick={()=>setFecha(new Date())} style={{fontFamily:'Century Gothic,sans-serif'}}>Hoy</button>
 
-      {/* Botones agendar Reunión / Capacitación */}
       <button className="btn btn-sm" onClick={()=>openNewEvento('reunion')}
-        style={{background:'linear-gradient(135deg,rgba(88,28,135,.7),rgba(109,40,217,.5))',border:'1px solid rgba(167,139,250,.4)',color:'#d8b4fe',display:'flex',alignItems:'center',gap:6}}>
-        <span style={{fontSize:13}}>📅</span> Agendar Reunión
+        style={{background:'linear-gradient(135deg,rgba(88,28,135,.7),rgba(109,40,217,.5))',border:'1px solid rgba(167,139,250,.4)',color:'#d8b4fe',display:'flex',alignItems:'center',gap:6,fontFamily:'Century Gothic,sans-serif'}}>
+        <span style={{fontSize:13}}>📅</span> Reunion
       </button>
       <button className="btn btn-sm" onClick={()=>openNewEvento('capacitacion')}
-        style={{background:'linear-gradient(135deg,rgba(15,118,110,.7),rgba(20,184,166,.4))',border:'1px solid rgba(94,234,212,.4)',color:'#5eead4',display:'flex',alignItems:'center',gap:6}}>
-        <span style={{fontSize:13}}>🎓</span> Agendar Capacitación
+        style={{background:'linear-gradient(135deg,rgba(15,118,110,.7),rgba(20,184,166,.4))',border:'1px solid rgba(94,234,212,.4)',color:'#5eead4',display:'flex',alignItems:'center',gap:6,fontFamily:'Century Gothic,sans-serif'}}>
+        <span style={{fontSize:13}}>🎓</span> Capacitacion
       </button>
 
-      <select className="inp" style={{marginLeft:'auto',width:'auto',padding:'5px 10px',fontSize:12}} value={filtEq} onChange={e=>setFiltEq(e.target.value)}>
+      <select className="inp" style={{marginLeft:'auto',width:'auto',padding:'5px 10px',fontSize:12,fontFamily:'Century Gothic,sans-serif'}} value={filtEq} onChange={e=>setFiltEq(e.target.value)}>
         <option value="">Todo el equipo</option>
         {equipo.map(e=><option key={e.id} value={e.id}>{e.nombre}</option>)}
       </select>
     </div>
 
     {/* Leyenda */}
-    <div style={{display:'flex',gap:10,marginBottom:10,flexWrap:'wrap'}}>
+    <div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap'}}>
       {[
-        {color:'#93c5fd',  bg:'rgba(30,58,95,.5)',      label:'Tarea'},
-        {color:'#fca5a5',  bg:'rgba(153,27,27,.5)',     label:'Urgente'},
-        {color:'#4ade80',  bg:'rgba(26,107,58,.4)',     label:'Completada'},
-        {color:'#7dd3fc',  bg:'rgba(30,58,95,.6)',      label:'🔔 Alerta', border:'2px solid #C9A84C'},
-        {color:'#d8b4fe',  bg:'rgba(88,28,135,.5)',     label:'📅 Reunión', border:'2px solid #C9A84C'},
-        {color:'#5eead4',  bg:'rgba(15,118,110,.5)',    label:'🎓 Capacitación', border:'2px solid #5eead4'},
+        {color:'#93c5fd',bg:'rgba(30,58,95,.5)',label:'Tarea'},
+        {color:'#fca5a5',bg:'rgba(153,27,27,.5)',label:'Urgente'},
+        {color:'#4ade80',bg:'rgba(26,107,58,.4)',label:'Completada'},
+        {color:'#7dd3fc',bg:'rgba(30,58,95,.6)',label:'Alerta',border:'2px solid #C9A84C'},
+        {color:'#d8b4fe',bg:'rgba(88,28,135,.5)',label:'Reunion',border:'2px solid #C9A84C'},
+        {color:'#5eead4',bg:'rgba(15,118,110,.5)',label:'Capacitacion',border:'2px solid #5eead4'},
       ].map(x=>(
-        <span key={x.label} style={{fontSize:10,padding:'2px 8px',borderRadius:4,background:x.bg,color:x.color,fontWeight:600,borderLeft:x.border||'none'}}>
+        <span key={x.label} style={{fontSize:9,padding:'3px 10px',borderRadius:6,background:x.bg,color:x.color,fontWeight:600,
+          borderLeft:x.border||'none',fontFamily:'Century Gothic,sans-serif',letterSpacing:'.2px'}}>
           {x.label}
         </span>
       ))}
     </div>
 
-    <div className="card-p" style={{marginBottom:14}}>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',marginBottom:8}}>
-        {['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(d=><div key={d} className="cal-header" style={{textAlign:'center',fontSize:11,fontWeight:600,color:'#475569',padding:'4px 0'}}>{d}</div>)}
+    {/* ── Grilla del calendario — celdas de altura fija ──── */}
+    <div className="dash-card" style={{marginBottom:14,padding:'14px 12px'}}>
+      <div className="cal-grid" style={{marginBottom:6}}>
+        {['Lun','Mar','Mie','Jue','Vie','Sab','Dom'].map(d=><div key={d} className="cal-weekday">{d}</div>)}
       </div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:4}}>
+      <div className="cal-grid">
         {[...Array(primerDia)].map((_,i)=><div key={'p'+i}/>)}
         {[...Array(diasMes)].map((_,i)=>{
           const d=i+1;
           const isHoy=hoy.getFullYear()===y&&hoy.getMonth()===m&&hoy.getDate()===d;
           const ts=getDia(d);
           const dateStr=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-          return <div key={d} className="cal-cel" onClick={()=>ts.length>0&&setDiaSeleccionado({dateStr,items:ts})}
-            style={{borderRadius:8,padding:'6px 4px',minHeight:64,border:'1px solid',
-              borderColor:isHoy?'#C9A84C':'#243447',
-              background:isHoy?'rgba(201,168,76,.08)':'#0f1923',
-              cursor:ts.length>0?'pointer':'default',
-              transition:'background .15s',
-            }}
-            onMouseEnter={e=>{if(ts.length>0) e.currentTarget.style.background=isHoy?'rgba(201,168,76,.14)':'rgba(30,58,95,.18)';}}
-            onMouseLeave={e=>{e.currentTarget.style.background=isHoy?'rgba(201,168,76,.08)':'#0f1923';}}>
-            <div className="cal-dia" style={{fontSize:12,fontWeight:isHoy?700:400,color:isHoy?'#C9A84C':'#64748b',marginBottom:3,textAlign:'center',display:'flex',alignItems:'center',justifyContent:'center',gap:3}}>
+          const maxChips = 3;
+          return <div key={d}
+            className={clx('cal-cell',isHoy&&'cal-hoy',ts.length>0&&'cal-has')}
+            onClick={()=>ts.length>0&&setDiaSeleccionado({dateStr,items:ts})}>
+            <div className="cal-day">
+              {ts.length>0&&<span className="cal-badge" style={{fontSize:8,background:'rgba(201,168,76,.2)',color:'#C9A84C',borderRadius:99,padding:'0 4px',fontWeight:700,lineHeight:'13px'}}>{ts.length}</span>}
               {d}
-              {ts.length>0&&<span style={{fontSize:9,background:'rgba(201,168,76,.25)',color:'#C9A84C',borderRadius:99,padding:'0 4px',fontWeight:700,lineHeight:'14px'}}>{ts.length}</span>}
             </div>
-            {ts.slice(0,3).map(t=>(
-              <div key={t.id} title={t.titulo+(t.esAlerta?' ['+t.tipo+']':'')} style={{
-                fontSize:10,padding:'1px 4px',borderRadius:3,marginBottom:2,
-                overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
-                ...chipStyle(t)
-              }}>
-                {t.tipo==='Reunión'?'📅 ':t.tipo==='Capacitación'?'🎓 ':t.esAlerta?'🔔 ':''}{t.titulo}
-              </div>
-            ))}
-            {ts.length>3&&<div style={{fontSize:10,color:'#C9A84C',textAlign:'center',fontWeight:600}}>+{ts.length-3} más</div>}
+            <div className="cal-items">
+              {ts.slice(0,maxChips).map(t=>(
+                <div key={t.id} className="cal-chip" title={t.titulo+(t.esAlerta?' ['+t.tipo+']':'')} style={chipStyle(t)}>
+                  {t.tipo==='Reunión'?'📅 ':t.tipo==='Capacitación'?'🎓 ':t.esAlerta?'🔔 ':''}{t.titulo}
+                </div>
+              ))}
+              {ts.length>maxChips&&<div className="cal-more">+{ts.length-maxChips}</div>}
+            </div>
           </div>;
         })}
       </div>
     </div>
 
     {/* Agenda de Hoy */}
-    <div className="card-p" style={{marginBottom:14}}>
-      <h4 className="sy" style={{color:'#fff',fontWeight:700,fontSize:13,marginBottom:10,display:'flex',alignItems:'center',gap:8}}>
+    <div className="dash-card" style={{marginBottom:14}}>
+      <h3 className="dash-section-title" style={{margin:'0 0 12px'}}>
         <Ico n="clock" s={14} c="#C9A84C"/> Agenda de Hoy — {hoy.toLocaleDateString('es-CO')}
-        <span style={{marginLeft:'auto',fontSize:11,fontWeight:400,color:'#475569'}}>{hoyTareas.length} evento{hoyTareas.length!==1?'s':''}</span>
-      </h4>
-      {hoyTareas.length===0&&<p style={{color:'#475569',fontSize:13}}>Sin tareas ni alertas para hoy ✓</p>}
+        <span style={{marginLeft:'auto',fontSize:11,fontWeight:400,color:'#475569',fontFamily:'Century Gothic,sans-serif'}}>{hoyTareas.length} evento{hoyTareas.length!==1?'s':''}</span>
+      </h3>
+      {hoyTareas.length===0&&<p style={{color:'#556b84',fontSize:13,textAlign:'center',padding:'14px 0',fontFamily:'Century Gothic,sans-serif'}}>Sin tareas ni alertas para hoy ✓</p>}
       {hoyTareas.map(t=>(
-        <div key={t.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 0',borderBottom:'1px solid rgba(36,52,71,.5)'}}>
+        <div key={t.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 8px',borderBottom:'1px solid rgba(36,52,71,.4)',
+          borderRadius:6,transition:'background .2s'}}
+          onMouseOver={e=>e.currentTarget.style.background='rgba(201,168,76,.02)'}
+          onMouseOut={e=>e.currentTarget.style.background='transparent'}>
           <div style={{flex:1,minWidth:0}}>
-            <p style={{color:'#fff',fontSize:13,margin:0,fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+            <p style={{color:'#e8ecf1',fontSize:13,margin:0,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontFamily:'Century Gothic,sans-serif'}}>
               {t.tipo==='Reunión'?'📅 ':t.tipo==='Capacitación'?'🎓 ':t.esAlerta?'🔔 ':''}{t.titulo}
             </p>
-            <p style={{color:'#475569',fontSize:11,margin:0}}>
+            <p style={{color:'#556b84',fontSize:11,margin:'2px 0 0',fontFamily:'Century Gothic,sans-serif'}}>
               {equipo.find(e=>e.id===t.responsableId)?.nombre||'Sin asignar'}
               {t.esAlerta&&t.tipo&&<span style={{color:'#64748b'}}> · {t.tipo}</span>}
               {t.horaInicio&&<span style={{color:'#C9A84C',marginLeft:6}}>⏰ {t.horaInicio}{t.horaFin?' - '+t.horaFin:''}</span>}
@@ -6048,11 +6091,11 @@ const Calendario = () => {
     {(()=>{
       const eventos = tareasF.filter(t=>t.esAlerta&&(t.tipo==='Reunión'||t.tipo==='Capacitación')&&t.fechaVen?.startsWith(`${y}-${String(m+1).padStart(2,'0')}`));
       if(!eventos.length) return null;
-      return <div className="card-p" style={{marginBottom:14}}>
-        <h4 className="sy" style={{color:'#fff',fontWeight:700,fontSize:13,marginBottom:10,display:'flex',alignItems:'center',gap:8}}>
+      return <div className="dash-card" style={{marginBottom:14}}>
+        <h3 className="dash-section-title" style={{margin:'0 0 12px'}}>
           Eventos del Mes
-          <span style={{marginLeft:'auto',fontSize:11,fontWeight:400,color:'#475569'}}>{eventos.length} evento{eventos.length!==1?'s':''}</span>
-        </h4>
+          <span style={{marginLeft:'auto',fontSize:11,fontWeight:400,color:'#475569',fontFamily:'Century Gothic,sans-serif'}}>{eventos.length} evento{eventos.length!==1?'s':''}</span>
+        </h3>
         {eventos.sort((a,b)=>(a.fechaVen||'').localeCompare(b.fechaVen||'')).map(t=>(
           <div key={t.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 0',borderBottom:'1px solid rgba(36,52,71,.4)'}}>
             <div style={{flex:1,minWidth:0}}>
