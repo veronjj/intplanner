@@ -710,23 +710,89 @@ textarea.inp{resize:vertical;min-height:80px}
   /* Modales — full-width en móvil */
   .modal{padding:16px;border-radius:12px}
 
-  /* Kanban — scroll horizontal nativo, columnas de ancho fijo */
+  /* Kanban Premium — columnas con scroll vertical, drop zone animada */
   .kanban-scroll{
-    overflow-x:auto;-webkit-overflow-scrolling:touch;
-    padding-bottom:8px;
-    /* Snap entre columnas */
+    overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:8px;
     scroll-snap-type:x mandatory;
   }
   .kanban-scroll::-webkit-scrollbar{height:4px}
-  .kanban-cols{
-    display:flex;gap:12px;
-    width:max-content;
-    align-items:start;
+  .kanban-scroll::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:4px}
+  .kanban-cols{display:flex;gap:10px;width:max-content;align-items:start}
+  .kanban-col{width:250px;flex-shrink:0;scroll-snap-align:start;border-radius:12px;transition:all .2s ease}
+  .kanban-col-head{
+    padding:10px 12px;display:flex;align-items:center;justify-content:space-between;
+    border-bottom:1px solid rgba(36,52,71,.5);position:sticky;top:0;z-index:2;
+    font-family:'Century Gothic','Segoe UI',sans-serif;
   }
-  .kanban-col{
-    width:280px;flex-shrink:0;
-    scroll-snap-align:start;
+  .kanban-col-body{padding:6px;display:flex;flex-direction:column;gap:6px;max-height:60vh;overflow-y:auto}
+  .kanban-col-body::-webkit-scrollbar{width:3px}
+  .kanban-col-body::-webkit-scrollbar-thumb{background:rgba(201,168,76,.2);border-radius:3px}
+  .kanban-card{
+    background:#162030;border:1px solid rgba(36,52,71,.6);border-radius:10px;padding:10px 12px;
+    cursor:grab;transition:all .18s ease;position:relative;overflow:hidden;
+    font-family:'Century Gothic','Segoe UI',sans-serif;
   }
+  .kanban-card:hover{border-color:rgba(201,168,76,.25);box-shadow:0 2px 12px rgba(0,0,0,.2);transform:translateY(-1px)}
+  .kanban-card:active{cursor:grabbing;box-shadow:0 8px 24px rgba(0,0,0,.35);transform:scale(1.02)}
+  .kanban-card.dragging{opacity:.35;border-style:dashed}
+  .kanban-card.vencida{border-left:3px solid #f87171}
+  .kanban-empty{text-align:center;padding:20px 8px;color:#2a3e55;font-size:11px;border-radius:8px;border:2px dashed rgba(36,52,71,.4);font-family:'Century Gothic',sans-serif}
+
+  /* ── Centro de Notificaciones ────────────────────────────── */
+  .notif-wrap{position:relative}
+  .notif-bell{
+    position:relative;display:flex;align-items:center;justify-content:center;
+    width:36px;height:36px;border-radius:10px;border:1px solid rgba(36,52,71,.6);
+    background:transparent;cursor:pointer;transition:all .3s cubic-bezier(.4,0,.2,1);color:#556b84;
+  }
+  .notif-bell:hover{border-color:rgba(201,168,76,.35);color:#C9A84C;background:rgba(201,168,76,.06);box-shadow:0 0 12px rgba(201,168,76,.08)}
+  .notif-bell.has-notifs{border-color:rgba(201,168,76,.2);color:#94a3b8}
+  .notif-bell .notif-badge{
+    position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;border-radius:99px;
+    background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;font-size:9px;font-weight:800;
+    display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid #0f1923;
+    font-family:'Century Gothic',sans-serif;
+    box-shadow:0 2px 8px rgba(239,68,68,.35);
+    animation:notifPulse 2.5s ease-in-out infinite;
+  }
+  @keyframes notifPulse{0%,100%{transform:scale(1);box-shadow:0 2px 8px rgba(239,68,68,.35)}50%{transform:scale(1.12);box-shadow:0 2px 12px rgba(239,68,68,.5)}}
+  .notif-panel{
+    position:absolute;top:calc(100% + 10px);right:-8px;width:400px;max-height:72vh;
+    background:linear-gradient(168deg,#18263a 0%,#111d2e 60%,#0e1825 100%);
+    border:1px solid rgba(201,168,76,.15);border-radius:16px;
+    box-shadow:0 12px 48px rgba(0,0,0,.55),0 4px 12px rgba(0,0,0,.35),0 0 0 1px rgba(201,168,76,.05);
+    overflow:hidden;z-index:9000;
+    animation:notifSlide .25s cubic-bezier(.4,0,.2,1);
+    font-family:'Century Gothic','Segoe UI',sans-serif;
+  }
+  .notif-panel::before{
+    content:'';position:absolute;top:0;left:0;right:0;height:3px;
+    background:linear-gradient(90deg,#C9A84C,rgba(201,168,76,.3),transparent);border-radius:16px 16px 0 0;
+  }
+  @keyframes notifSlide{from{opacity:0;transform:translateY(-10px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+  .notif-panel-head{
+    padding:16px 18px;border-bottom:1px solid rgba(36,52,71,.5);
+    display:flex;align-items:center;justify-content:space-between;
+    position:sticky;top:0;z-index:2;background:linear-gradient(168deg,#18263a,#111d2e);
+  }
+  .notif-panel-body{overflow-y:auto;max-height:calc(72vh - 56px);padding:10px}
+  .notif-panel-body::-webkit-scrollbar{width:3px}
+  .notif-panel-body::-webkit-scrollbar-thumb{background:rgba(201,168,76,.25);border-radius:3px}
+  .notif-group{margin-bottom:12px}
+  .notif-group-head{
+    padding:7px 12px;font-size:10px;font-weight:700;text-transform:uppercase;
+    letter-spacing:.5px;color:#556b84;display:flex;align-items:center;gap:7px;
+    font-family:'Century Gothic',sans-serif;
+    background:rgba(15,25,35,.4);border-radius:8px;margin-bottom:6px;
+  }
+  .notif-item{
+    padding:10px 12px;border-radius:10px;border:1px solid rgba(36,52,71,.35);
+    margin-bottom:4px;background:linear-gradient(135deg,rgba(15,25,35,.5),rgba(18,30,45,.4));
+    transition:all .25s ease;cursor:default;display:flex;align-items:flex-start;gap:10px;
+  }
+  .notif-item:hover{border-color:rgba(201,168,76,.2);background:rgba(201,168,76,.03);transform:translateX(2px)}
+  .notif-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px}
+  @media(max-width:480px){.notif-panel{width:calc(100vw - 24px);right:-60px}}
 
   /* Calendario — celdas compactas */
   .cal-cel{min-height:42px!important;padding:3px 2px!important}
@@ -3313,10 +3379,13 @@ const BusquedaGlobal = ({tareas,clientes,equipo,proyectos,facturas,onNav}) => {
 };
 
 const Header = ({title,user,onLogout,backup,onMobOpen}) => {
+  const {tareas,clientes,facturas} = useApp();
   const [online,     setOnline]    = React.useState(navigator.onLine);
   const [queueN,     setQueueN]    = React.useState(0);
   const [lastBackup, setLastBackup]= React.useState(()=>window.AutoBackup?.last()||backup);
   const [pushOn,     setPushOn]    = React.useState(()=>typeof Notification!=='undefined'&&Notification.permission==='granted'&&window.PushSvc?.getCfg()?.enabled!==false);
+  const [notifOpen,  setNotifOpen] = React.useState(false);
+  const notifRef = React.useRef(null);
 
   React.useEffect(()=>{
     const upd = () => {
@@ -3326,23 +3395,59 @@ const Header = ({title,user,onLogout,backup,onMobOpen}) => {
     };
     const onBackup = (e) => setLastBackup(e.detail);
     const onPush   = ()  => setPushOn(true);
+    const clickOut = (e) => { if(notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false); };
     window.addEventListener('online',  upd);
     window.addEventListener('offline', upd);
     window.addEventListener('ip-backup-updated', onBackup);
     window.addEventListener('ip-push-ready',     onPush);
+    document.addEventListener('mousedown', clickOut);
     const t = setInterval(upd, 5000);
     return ()=>{
       window.removeEventListener('online',  upd);
       window.removeEventListener('offline', upd);
       window.removeEventListener('ip-backup-updated', onBackup);
       window.removeEventListener('ip-push-ready',     onPush);
+      document.removeEventListener('mousedown', clickOut);
       clearInterval(t);
     };
   },[]);
 
+  // ── Calcular notificaciones en tiempo real ──────────────
+  const hoyStr = new Date().toISOString().split('T')[0];
+  const PAGADOS_N = ['Pagada','pagada','Paz y Salvo','Paz Y Salvo'];
+
+  const notifs = React.useMemo(()=>{
+    const items = [];
+    // 1. Tareas vencidas
+    tareas.filter(t=>!t.esAlerta&&t.fechaVen&&t.fechaVen<hoyStr&&t.estado!=='completada'&&t.estado!=='cancelada').forEach(t=>{
+      items.push({type:'vencida',color:'#f87171',icon:'clock',title:t.titulo,sub:clientes.find(c=>c.id===t.clienteId)?.nombre||'',detail:`Venció ${fmt.date(t.fechaVen)}`});
+    });
+    // 2. Facturas por cobrar (pendientes/enviadas/vencidas)
+    facturas.filter(f=>!PAGADOS_N.includes(f.estado)).forEach(f=>{
+      const cli=clientes.find(c=>c.id===f.clienteId);
+      const total=(Number(f.valor)||0)*(f.iva?1.19:1);
+      items.push({type:'cobro',color:'#C9A84C',icon:'money',title:`#${f.numero} — ${fmt.cop(total)}`,sub:cli?.nombre||'',detail:f.estado+(f.fechaVen?` · Vence ${fmt.date(f.fechaVen)}`:'')});
+    });
+    // 3. Tareas próximas (7 días)
+    tareas.filter(t=>{if(t.esAlerta||t.estado==='completada'||t.estado==='cancelada')return false;const d=new Date(t.fechaVen+'T12:00:00');const df=(d-new Date())/86400000;return df>=0&&df<=7;}).forEach(t=>{
+      items.push({type:'proxima',color:'#60a5fa',icon:'calendar',title:t.titulo,sub:clientes.find(c=>c.id===t.clienteId)?.nombre||'',detail:`Vence ${fmt.rel(t.fechaVen)}`});
+    });
+    // 4. Compromisos pendientes (de visitas)
+    const visitasData = DB.get('visitas_cliente')||[];
+    visitasData.forEach(v=>{
+      (v.compromisos||[]).filter(c=>!c.cumplido&&c.fechaCompromiso&&c.fechaCompromiso<=hoyStr).forEach(c=>{
+        items.push({type:'compromiso',color:'#c084fc',icon:'check',title:c.titulo||c.descripcion||'Compromiso',sub:clientes.find(cl=>cl.id===v.clienteId)?.nombre||'',detail:`Fecha: ${fmt.date(c.fechaCompromiso)}`});
+      });
+    });
+    return items;
+  },[tareas,facturas,clientes,hoyStr]);
+
+  const groupLabels = {vencida:'Tareas Vencidas',cobro:'Facturas por Cobrar',proxima:'Próximos 7 Días',compromiso:'Compromisos Pendientes'};
+  const grouped = ['vencida','cobro','proxima','compromiso'].map(type=>({type,label:groupLabels[type],items:notifs.filter(n=>n.type===type)})).filter(g=>g.items.length>0);
+  const totalNotifs = notifs.length;
+
   return (
   <div className="topbar">
-    {/* Hamburguesa — solo visible en móvil (≤640px) */}
     <button onClick={onMobOpen} className="mob-ham"
       style={{display:'none',background:'none',border:'none',cursor:'pointer',
         color:'#94a3b8',padding:'6px 8px 6px 0',borderRadius:6,
@@ -3350,8 +3455,8 @@ const Header = ({title,user,onLogout,backup,onMobOpen}) => {
       aria-label="Abrir menú">
       <Ico n="menu" s={22}/>
     </button>
-    <h2 className="sy" style={{fontWeight:700,fontSize:16,color:'#fff',margin:0}}>{title}</h2>
-    <div style={{display:'flex',alignItems:'center',gap:10}}>
+    <h2 style={{fontWeight:700,fontSize:16,color:'#fff',margin:0,fontFamily:'Century Gothic,sans-serif'}}>{title}</h2>
+    <div style={{display:'flex',alignItems:'center',gap:8}}>
       {!online && (
         <div style={{display:'flex',alignItems:'center',gap:6,fontSize:11,fontWeight:600,padding:'4px 10px',borderRadius:20,background:'rgba(180,83,9,.25)',border:'1px solid rgba(217,119,6,.4)',color:'#fbbf24'}}>
           <span style={{width:7,height:7,borderRadius:'50%',background:'#f59e0b',display:'inline-block'}}/>
@@ -3360,31 +3465,80 @@ const Header = ({title,user,onLogout,backup,onMobOpen}) => {
       )}
       {online && queueN>0 && (
         <div title="Sincronizando..." onClick={()=>window.SyncQueue?.process()} style={{display:'flex',alignItems:'center',gap:6,fontSize:11,fontWeight:600,padding:'4px 10px',borderRadius:20,background:'rgba(59,130,246,.15)',border:'1px solid rgba(59,130,246,.3)',color:'#60a5fa',cursor:'pointer'}}>
-          <span style={{width:7,height:7,borderRadius:'50%',background:'#3b82f6',display:'inline-block'}}/>
           Sincronizando {queueN}
         </div>
       )}
-      {/* Botón Búsqueda Global — Ctrl+K */}
+      {/* Búsqueda Global */}
       <button
         onClick={()=>window.dispatchEvent(new CustomEvent('ip-search-open'))}
         title="Búsqueda global (Ctrl+K)"
         style={{display:'flex',alignItems:'center',gap:6,fontSize:11,fontWeight:600,
           padding:'4px 12px',borderRadius:20,border:'1px solid #243447',
-          background:'transparent',color:'#64748b',cursor:'pointer',
-          transition:'all .15s'}}
+          background:'transparent',color:'#64748b',cursor:'pointer',transition:'all .15s',fontFamily:'Century Gothic,sans-serif'}}
         onMouseEnter={e=>{e.currentTarget.style.borderColor='rgba(201,168,76,.4)';e.currentTarget.style.color='#C9A84C';}}
         onMouseLeave={e=>{e.currentTarget.style.borderColor='#243447';e.currentTarget.style.color='#64748b';}}>
         <Ico n="search" s={13}/>
         <span className="mob-hide">Buscar</span>
-        <kbd style={{fontSize:9,background:'#1e2d42',padding:'1px 5px',borderRadius:3,
-          border:'1px solid #334155',color:'#475569',marginLeft:2}}>⌃K</kbd>
+        <kbd style={{fontSize:9,background:'#1e2d42',padding:'1px 5px',borderRadius:3,border:'1px solid #334155',color:'#475569',marginLeft:2}}>⌃K</kbd>
       </button>
-      {/* Badge notificaciones */}
-      <div className="mob-hide" title={pushOn?'Notificaciones activas — clic en Configuración para ajustar':'Notificaciones inactivas — ir a Configuración → Notificaciones'}
-        style={{display:'flex',alignItems:'center',gap:5,fontSize:11,fontWeight:600,padding:'4px 10px',borderRadius:20,border:'1px solid',
-          borderColor:pushOn?'rgba(201,168,76,.3)':'#243447',background:pushOn?'rgba(201,168,76,.08)':'transparent',color:pushOn?'#C9A84C':'#475569'}}>
-        <span style={{fontSize:13}}>{pushOn?'🔔':'🔕'}</span>
+
+      {/* ── CENTRO DE NOTIFICACIONES PREMIUM ── */}
+      <div className="notif-wrap" ref={notifRef}>
+        <button className={clx('notif-bell',totalNotifs>0&&'has-notifs')} onClick={()=>setNotifOpen(p=>!p)}
+          title={`${totalNotifs} notificacion${totalNotifs!==1?'es':''}`}>
+          <Ico n="bell" s={16}/>
+          {totalNotifs>0&&<span className="notif-badge">{totalNotifs>99?'99+':totalNotifs}</span>}
+        </button>
+
+        {notifOpen&&<div className="notif-panel">
+          <div className="notif-panel-head">
+            <div style={{display:'flex',alignItems:'center',gap:9}}>
+              <div style={{width:28,height:28,borderRadius:8,background:'linear-gradient(135deg,rgba(201,168,76,.12),rgba(201,168,76,.04))',
+                border:'1px solid rgba(201,168,76,.18)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <Ico n="bell" s={13} c="#C9A84C"/>
+              </div>
+              <span style={{fontSize:14,fontWeight:700,color:'#e8ecf1',fontFamily:'Century Gothic,sans-serif'}}>Notificaciones</span>
+              {totalNotifs>0&&<span style={{fontSize:10,fontWeight:700,color:'#C9A84C',background:'rgba(201,168,76,.1)',border:'1px solid rgba(201,168,76,.2)',borderRadius:99,padding:'2px 9px',fontFamily:'Century Gothic,sans-serif'}}>{totalNotifs}</span>}
+            </div>
+            <button onClick={()=>setNotifOpen(false)} style={{background:'none',border:'1px solid rgba(36,52,71,.5)',borderRadius:8,color:'#556b84',cursor:'pointer',padding:5,transition:'all .2s'}}
+              onMouseOver={e=>e.currentTarget.style.color='#C9A84C'} onMouseOut={e=>e.currentTarget.style.color='#556b84'}>
+              <Ico n="close" s={13}/>
+            </button>
+          </div>
+          <div className="notif-panel-body">
+            {totalNotifs===0&&<div style={{textAlign:'center',padding:'36px 16px'}}>
+              <div style={{width:48,height:48,borderRadius:14,background:'rgba(74,222,128,.08)',border:'1px solid rgba(74,222,128,.15)',
+                display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px'}}>
+                <Ico n="check" s={22} c="#4ade80"/>
+              </div>
+              <p style={{margin:0,fontSize:14,fontWeight:700,color:'#e8ecf1',fontFamily:'Century Gothic,sans-serif'}}>Todo al dia</p>
+              <p style={{margin:'6px 0 0',fontSize:12,color:'#556b84',fontFamily:'Century Gothic,sans-serif'}}>Sin notificaciones pendientes</p>
+            </div>}
+            {grouped.map(g=>{
+              const groupIcons = {vencida:'clock',cobro:'money',proxima:'calendar',compromiso:'check'};
+              return <div key={g.type} className="notif-group">
+                <div className="notif-group-head">
+                  <Ico n={groupIcons[g.type]||'bell'} s={11} c={g.items[0].color}/>
+                  {g.label}
+                  <span style={{marginLeft:'auto',fontSize:9,fontWeight:700,color:g.items[0].color,background:`${g.items[0].color}12`,border:`1px solid ${g.items[0].color}22`,borderRadius:99,padding:'2px 7px',fontFamily:'Century Gothic,sans-serif'}}>{g.items.length}</span>
+                </div>
+                {g.items.slice(0,5).map((n,i)=>(
+                  <div key={i} className="notif-item">
+                    <div className="notif-dot" style={{background:n.color,boxShadow:`0 0 8px ${n.color}44`}}/>
+                    <div style={{flex:1,minWidth:0}}>
+                      <p style={{margin:0,fontSize:12,fontWeight:600,color:'#e8ecf1',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontFamily:'Century Gothic,sans-serif'}}>{n.title}</p>
+                      {n.sub&&<p style={{margin:'2px 0 0',fontSize:10,color:'#556b84',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontFamily:'Century Gothic,sans-serif'}}>{n.sub}</p>}
+                      <p style={{margin:'4px 0 0',fontSize:9.5,color:n.color,fontFamily:'Century Gothic,sans-serif',fontWeight:600}}>{n.detail}</p>
+                    </div>
+                  </div>
+                ))}
+                {g.items.length>5&&<p style={{fontSize:10,color:g.items[0].color,textAlign:'center',margin:'8px 0 2px',fontWeight:700,fontFamily:'Century Gothic,sans-serif'}}>+{g.items.length-5} mas</p>}
+              </div>;
+            })}
+          </div>
+        </div>}
       </div>
+
       {/* Indicador auto-backup */}
       <div className="mob-hide" title={lastBackup?`Último backup: ${new Date(lastBackup.ts).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})}`:''} style={{display:'flex',alignItems:'center',gap:6,fontSize:11,fontWeight:600,padding:'4px 12px',borderRadius:20,border:'1px solid',borderColor:lastBackup?'rgba(74,222,128,.25)':'#243447',background:lastBackup?'rgba(26,107,58,.15)':'transparent',color:lastBackup?'#4ade80':'#475569'}}>
         <span style={{width:7,height:7,borderRadius:'50%',background:lastBackup?'#4ade80':'#334155',display:'inline-block'}}/>
@@ -4100,9 +4254,9 @@ const Tareas = () => {
       </table>
     </div>}
 
-    {/* ── VISTA KANBAN ── */}
+    {/* ── VISTA KANBAN PREMIUM ── */}
     {vista==='kanban'&&<div className="kanban-scroll">
-      <div className="kanban-cols" style={{display:'grid',gridTemplateColumns:'repeat(6,minmax(190px,1fr))',gap:12,alignItems:'start'}}>
+      <div className="kanban-cols">
       {KANBAN_COLS.map(col=>{
         const colTareas = tareasKanban[col.id]||[];
         const isOver    = dragOver===col.id;
@@ -4112,28 +4266,20 @@ const Tareas = () => {
             onDrop={e=>onDrop(e,col.id)}
             onDragLeave={()=>setDragOver(null)}
             style={{
-              borderRadius:12,border:'2px solid',minHeight:200,
+              border:'1.5px solid',
               borderColor:isOver?col.color:col.border,
-              background:isOver?col.bg+'cc':col.bg,
-              transition:'all .15s',padding:'0 0 8px'
+              background:col.bg,
+              boxShadow:isOver?`0 0 20px ${col.color}15, inset 0 0 30px ${col.color}08`:'none',
             }}>
-
-            {/* Header columna */}
-            <div style={{padding:'12px 14px 10px',display:'flex',alignItems:'center',justifyContent:'space-between',borderBottom:'1px solid',borderColor:col.border}}>
-              <div style={{display:'flex',alignItems:'center',gap:8}}>
-                <div style={{width:10,height:10,borderRadius:'50%',background:col.color,flexShrink:0}}/>
-                <span style={{fontSize:13,fontWeight:700,color:'#fff'}}>{col.label}</span>
+            <div className="kanban-col-head" style={{borderColor:col.border}}>
+              <div style={{display:'flex',alignItems:'center',gap:7}}>
+                <div style={{width:8,height:8,borderRadius:'50%',background:col.color,boxShadow:`0 0 6px ${col.color}44`}}/>
+                <span style={{fontSize:12,fontWeight:700,color:'#e8ecf1'}}>{col.label}</span>
               </div>
-              <span style={{fontSize:11,fontWeight:700,color:col.color,background:col.bg,border:'1px solid',borderColor:col.border,borderRadius:99,padding:'1px 8px'}}>{colTareas.length}</span>
+              <span style={{fontSize:10,fontWeight:700,color:col.color,background:`${col.color}15`,border:`1px solid ${col.color}30`,borderRadius:99,padding:'2px 8px',lineHeight:'14px'}}>{colTareas.length}</span>
             </div>
-
-            {/* Tarjetas */}
-            <div style={{padding:'8px 8px 0',display:'flex',flexDirection:'column',gap:8}}>
-              {colTareas.length===0&&(
-                <div style={{textAlign:'center',padding:'24px 8px',color:'#334155',fontSize:12,borderRadius:8,border:'2px dashed #243447',margin:'4px 0'}}>
-                  Sin tareas
-                </div>
-              )}
+            <div className="kanban-col-body">
+              {colTareas.length===0&&<div className="kanban-empty">Arrastra tareas aqui</div>}
               {colTareas.map(t=>{
                 const isVenc  = t.fechaVen&&t.fechaVen<hoy&&t.estado!=='completada';
                 const cliente = clientes.find(c=>c.id===t.clienteId);
@@ -4141,98 +4287,54 @@ const Tareas = () => {
                 const resps   = rIds.map(id=>equipo.find(e=>e.id===id)).filter(Boolean);
                 const isDragging = drag?.id===t.id;
                 return (
-                  <div key={t.id}
-                    draggable
-                    onDragStart={e=>onDragStart(e,t.id,col.id)}
-                    onDragEnd={onDragEnd}
-                    style={{
-                      background:isDragging?'rgba(255,255,255,.03)':'#162030',
-                      border:'1px solid',
-                      borderColor:isVenc?'rgba(248,113,113,.35)':isDragging?col.color:'#243447',
-                      borderRadius:10,padding:'10px 12px',cursor:'grab',
-                      opacity:isDragging?.4:1,
-                      boxShadow:isDragging?`0 0 0 2px ${col.color}44`:'none',
-                      transition:'all .15s'
-                    }}>
-
-                    {/* Título + prioridad */}
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:6,marginBottom:6}}>
-                      <p style={{fontSize:12,fontWeight:600,color:'#fff',margin:0,lineHeight:1.4}}>{t.titulo}</p>
+                  <div key={t.id} draggable onDragStart={e=>onDragStart(e,t.id,col.id)} onDragEnd={onDragEnd}
+                    className={clx('kanban-card',isDragging&&'dragging',isVenc&&'vencida')}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:6,marginBottom:5}}>
+                      <p style={{fontSize:11.5,fontWeight:600,color:'#e8ecf1',margin:0,lineHeight:1.35}}>{t.titulo}</p>
                       {t.prioridad&&prioBadge(t.prioridad)}
                     </div>
-
-                    {/* Cliente */}
-                    {cliente&&<p style={{fontSize:11,color:'#60a5fa',margin:'0 0 4px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                      📁 {cliente.nombre}
+                    {cliente&&<p style={{fontSize:10,color:'#60a5fa',margin:'0 0 3px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                      <Ico n="clients" s={9} c="#60a5fa"/> {cliente.nombre}
                     </p>}
-
-                    {/* Vencimiento */}
-                    {t.fechaVen&&<p style={{fontSize:11,color:isVenc?'#f87171':'#64748b',margin:'0 0 2px'}}>
-                      {isVenc?'⚠️':'📅'} Vence: {fmt.date(t.fechaVen)}
-                    </p>}
-
-                    {/* Fecha Asignada */}
-                    {t.fechaAsignada&&<p style={{fontSize:11,color:'#C9A84C',margin:'0 0 4px',display:'flex',alignItems:'center',gap:3}}>
-                      <span>🗓️</span> Asignada: {fmt.date(t.fechaAsignada)}
-                    </p>}
-
-                    {/* Actividades realizadas — indicador rápido */}
-                    {t.actividadesRealizadas&&<p style={{fontSize:10,color:'#4ade80',margin:'0 0 4px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                      ✅ {t.actividadesRealizadas.substring(0,40)}{t.actividadesRealizadas.length>40?'…':''}
-                    </p>}
-
-                    {/* Footer: responsables + acciones */}
-                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:6,paddingTop:6,borderTop:'1px solid #243447'}}>
+                    <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:3}}>
+                      {t.fechaVen&&<span style={{fontSize:9.5,color:isVenc?'#f87171':'#556b84',display:'flex',alignItems:'center',gap:3}}>
+                        <Ico n="calendar" s={9} c={isVenc?'#f87171':'#556b84'}/> {fmt.date(t.fechaVen)}
+                      </span>}
+                      {t.fechaAsignada&&<span style={{fontSize:9.5,color:'#C9A84C',display:'flex',alignItems:'center',gap:3}}>
+                        <Ico n="clock" s={9} c="#C9A84C"/> {fmt.date(t.fechaAsignada)}
+                      </span>}
+                    </div>
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:5,paddingTop:5,borderTop:'1px solid rgba(36,52,71,.4)'}}>
                       <div style={{display:'flex',alignItems:'center',gap:2,flex:1,minWidth:0}}>
-                        {resps.length
-                          ? <>
-                              {resps.slice(0,3).map((r,i)=>(
-                                <div key={r.id} title={r.nombre}
-                                  style={{width:20,height:20,borderRadius:'50%',
-                                    background:'linear-gradient(135deg,#1E3A5F,#2a5298)',
-                                    display:'flex',alignItems:'center',justifyContent:'center',
-                                    fontSize:9,fontWeight:700,color:'#fff',flexShrink:0,
-                                    marginLeft:i>0?-4:0,border:'1px solid #162030',zIndex:3-i,
-                                    cursor:'default'}}>
-                                  {r.nombre.charAt(0)}
-                                </div>
-                              ))}
-                              <span style={{fontSize:10,color:'#94a3b8',marginLeft:6,overflow:'hidden',
-                                textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:70}}>
-                                {resps.length===1 ? resps[0].nombre : `${resps[0].nombre.split(' ')[0]} +${resps.length-1}`}
-                              </span>
-                            </>
-                          : <span style={{fontSize:11,color:'#334155'}}>Sin asignar</span>
-                        }
-                        {/* Ícono de cierre si tiene soporte */}
-                        {Array.isArray(t.soporteCierre)&&t.soporteCierre.length>0&&(
-                          <span title={`${t.soporteCierre.length} archivo(s) de cierre`}
-                            style={{marginLeft:'auto',fontSize:12}}>🔒</span>
-                        )}
+                        {resps.slice(0,3).map((r,i)=>(
+                          <div key={r.id} title={r.nombre} style={{width:18,height:18,borderRadius:'50%',background:'linear-gradient(135deg,#1E3A5F,#2a5298)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:8,fontWeight:700,color:'#fff',flexShrink:0,marginLeft:i>0?-4:0,border:'1.5px solid #162030',zIndex:3-i}}>
+                            {r.nombre.charAt(0)}
+                          </div>
+                        ))}
+                        {resps.length>0&&<span style={{fontSize:9,color:'#556b84',marginLeft:4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{resps[0].nombre.split(' ')[0]}</span>}
+                        {resps.length===0&&<span style={{fontSize:9,color:'#2a3e55'}}>Sin asignar</span>}
                       </div>
-                      <div style={{display:'flex',gap:4,flexShrink:0}}>
-                        <button onClick={()=>openEdit(t)} style={{background:'none',border:'none',cursor:'pointer',color:'#475569',padding:'2px 4px',borderRadius:4,fontSize:11}} title="Editar">✏️</button>
-                        <button onClick={()=>setDel(t.id)} style={{background:'none',border:'none',cursor:'pointer',color:'#475569',padding:'2px 4px',borderRadius:4,fontSize:11}} title="Eliminar">🗑️</button>
+                      <div style={{display:'flex',gap:2,flexShrink:0}}>
+                        <button onClick={()=>openEdit(t)} style={{background:'none',border:'1px solid rgba(36,52,71,.5)',borderRadius:6,padding:'3px 5px',cursor:'pointer',color:'#556b84',transition:'color .2s'}}
+                          onMouseOver={e=>e.currentTarget.style.color='#C9A84C'} onMouseOut={e=>e.currentTarget.style.color='#556b84'}>
+                          <Ico n="edit" s={10}/>
+                        </button>
+                        {col.id!=='completada'&&<button onClick={()=>moverTarea(t.id, KANBAN_COLS[KANBAN_COLS.findIndex(c=>c.id===col.id)+1]?.id||col.id)}
+                          style={{background:'none',border:'1px solid rgba(36,52,71,.5)',borderRadius:6,padding:'3px 5px',cursor:'pointer',color:'#556b84',transition:'color .2s'}}
+                          onMouseOver={e=>e.currentTarget.style.color='#4ade80'} onMouseOut={e=>e.currentTarget.style.color='#556b84'}
+                          title={'→ '+KANBAN_COLS[KANBAN_COLS.findIndex(c=>c.id===col.id)+1]?.label}>
+                          <Ico n="chevR" s={10}/>
+                        </button>}
                       </div>
                     </div>
-
-                    {/* Mover rápido a siguiente estado */}
-                    {col.id!=='completada'&&(
-                      <button
-                        onClick={()=>moverTarea(t.id, KANBAN_COLS[KANBAN_COLS.findIndex(c=>c.id===col.id)+1]?.id||col.id)}
-                        style={{width:'100%',marginTop:6,background:'rgba(255,255,255,.03)',border:'1px solid #243447',borderRadius:6,padding:'3px 0',fontSize:10,color:'#475569',cursor:'pointer',transition:'all .15s'}}
-                        title="Mover a siguiente estado">
-                        → {KANBAN_COLS[KANBAN_COLS.findIndex(c=>c.id===col.id)+1]?.label}
-                      </button>
-                    )}
                   </div>
                 );
               })}
-
-              {/* Botón agregar en columna */}
               <button onClick={()=>{setForm({titulo:'',estado:col.id,prioridad:'media',clienteId:'',responsableId:'',responsablesIds:[],fechaVen:'',fechaAsignada:'',actividadesRealizadas:'',desc:'',proyectoId:'',soporteCierre:[],showCierre:false,compromisos:[],showCompromisos:false});setOpen(true);}}
-                style={{width:'100%',padding:'8px',background:'transparent',border:'1px dashed #243447',borderRadius:8,color:'#334155',fontSize:12,cursor:'pointer',marginTop:4,transition:'all .15s'}}>
-                + Agregar tarea
+                style={{width:'100%',padding:'7px',background:'transparent',border:'1px dashed rgba(36,52,71,.4)',borderRadius:8,color:'#2a3e55',fontSize:11,cursor:'pointer',transition:'all .2s',fontFamily:'Century Gothic,sans-serif'}}
+                onMouseOver={e=>{e.currentTarget.style.borderColor='rgba(201,168,76,.3)';e.currentTarget.style.color='#C9A84C';}}
+                onMouseOut={e=>{e.currentTarget.style.borderColor='rgba(36,52,71,.4)';e.currentTarget.style.color='#2a3e55';}}>
+                + Nueva tarea
               </button>
             </div>
           </div>
@@ -4240,6 +4342,7 @@ const Tareas = () => {
       })}
       </div>
     </div>}
+
 
     {/* ── MODAL TAREAS ── */}
     <Modal open={open} onClose={()=>setOpen(false)} title={form.id?'Editar Tarea':'Nueva Tarea'} wide>
@@ -11371,25 +11474,61 @@ const Exportar = () => {
       };
 
       const hrLine = (yy, color=C.lineR) => {
-        doc.setDrawColor(...color);
-        doc.setLineWidth(.3);
-        doc.line(M,yy,PW-M,yy);
+        // Línea principal
+        doc.setDrawColor(...color); doc.setLineWidth(.3); doc.line(M,yy,PW-M,yy);
+        // Acento dorado central sutil
+        doc.setFillColor(ACENTO_R[0],ACENTO_R[1],ACENTO_R[2]);
+        doc.rect(PW/2-15, yy-0.15, 30, 0.3, 'F');
+      };
+
+      // Sub-encabezado para sub-secciones dentro de una sección
+      const subHeader = (title, yy) => {
+        setColor([240,245,250]); doc.rect(M, yy, IW, 7, 'F');
+        setColor(C.goldR); doc.rect(M, yy, 2.5, 7, 'F');
+        setColor(C.navyR,true); doc.setFont(FF,'bold'); doc.setFontSize(FS(7.5));
+        txt(cleanTxt(title), M+6, yy+5);
+        return yy + 9;
       };
 
       const drawFooter = () => {
-        doc.setFillColor(...C.navyR); doc.rect(0,PH-14,PW,14,'F');
-        doc.setFillColor(...C.goldR); doc.rect(0,PH-15,PW,1,'F');
-        // C-item24: Centrar todo el contenido del pie de página
-        // C-item24: Reemplazar "INTEGRA CONSULTORES" por "INFORME DE GESTIÓN"
+        const FY = PH - 18; // inicio del footer
+        // Sombra superior
+        doc.setFillColor(180,190,205); doc.rect(0,FY-0.5,PW,.5,'F');
+        // Franja dorada triple capa (profundidad)
+        doc.setFillColor(160,130,45); doc.rect(0,FY-0.5,PW,.5,'F');
+        setColor(C.goldR); doc.rect(0,FY,PW,1.2,'F');
+        doc.setFillColor(225,200,115); doc.rect(0,FY,PW,.35,'F');
+        // Cuerpo navy con degradado
+        doc.setFillColor(...C.navyR); doc.rect(0,FY+1.2,PW,16.8,'F');
+        doc.setFillColor(Math.max(C.navyR[0]-10,0),Math.max(C.navyR[1]-16,0),Math.max(C.navyR[2]-22,0));
+        doc.rect(0,PH-8,PW,8,'F');
+
+        // ── Línea 1: Título del documento (centrado, dorado)
         doc.setTextColor(...ACENTO_R); doc.setFont(FF,'bold'); doc.setFontSize(FS(8));
-        doc.text(cleanTxt(pCfg.tituloDocumento||'INFORME DE GESTION'), PW/2, PH-9, {align:'center'});
-        const fpP4=[cfg.nit?'NIT: '+cfg.nit:null,cfg.telefono?'Tel: '+cfg.telefono:null,cfg.adminEmail||null,cfg.direccion||null].filter(Boolean);
-        doc.setTextColor(255,255,255); doc.setFont('helvetica','normal'); doc.setFontSize(6.5);
-        if(fpP4.length>0) doc.text(fpP4.join('  -  '), PW/2, PH-4, {align:'center'});
-        doc.setTextColor(...C.goldR); doc.setFont('helvetica','bold'); doc.setFontSize(7);
-        doc.text('Pag. '+page, PW-M, PH-7, {align:'right'});
-        doc.setTextColor(200,200,200); doc.setFont('helvetica','normal'); doc.setFontSize(6);
+        doc.text(cleanTxt(pCfg.tituloDocumento||'INFORME DE GESTION'), PW/2, FY+6.5, {align:'center'});
+
+        // ── Línea 2: Datos corporativos
+        const fpItems = [cfg.nit?'NIT: '+cfg.nit:null, cfg.telefono?'Tel: '+cfg.telefono:null, cfg.direccion||null].filter(Boolean);
+        if(fpItems.length>0){
+          doc.setTextColor(180,195,215); doc.setFont(FF,'normal'); doc.setFontSize(5.5);
+          doc.text(fpItems.join('  |  '), PW/2, FY+11, {align:'center'});
+        }
+
+        // ── Línea 3 (inferior): INTPLANNER PRO + correo (izq) | Web (centro) | Pag (der)
+        const correo = cfg.adminEmail || cfg.email || '';
+        // Izquierda: marca + correo
+        doc.setTextColor(...C.goldR); doc.setFont(FF,'bold'); doc.setFontSize(5.5);
         doc.text('INTPLANNER PRO', M, PH-3);
+        if(correo){
+          doc.setTextColor(160,175,195); doc.setFont(FF,'normal'); doc.setFontSize(5);
+          doc.text('  |  '+cleanTxt(correo), M+doc.getTextWidth('INTPLANNER PRO')+1, PH-3);
+        }
+        // Centro: sitio web corporativo
+        doc.setTextColor(200,210,225); doc.setFont(FF,'normal'); doc.setFontSize(6);
+        doc.text('www.integraconsultoresgr.com', PW/2, PH-3, {align:'center'});
+        // Derecha: paginación
+        doc.setTextColor(...C.goldR); doc.setFont(FF,'bold'); doc.setFontSize(7);
+        doc.text('Pag. '+page, PW-M, PH-3, {align:'right'});
       };
 
       // C-item10+19-21: Helper para limpiar texto de caracteres especiales antes de enviarlo a jsPDF
@@ -11448,37 +11587,46 @@ const Exportar = () => {
       };
 
       const tableRow = (cols, widths, yy, header=false, alt=false) => {
-        const rowH = 8;
+        const rowH = header ? 9 : 8;
         if(header){
+          // Header con degradado navy
           setColor(C.navyR); doc.rect(M,yy,IW,rowH,'F');
-          setColor(ACENTO_R,true); doc.setFont(FF,'bold'); doc.setFontSize(FS(7.5));
+          doc.setFillColor(Math.max(C.navyR[0]-8,0),Math.max(C.navyR[1]-12,0),Math.max(C.navyR[2]-16,0));
+          doc.rect(M,yy+6,IW,3,'F');
+          setColor(ACENTO_R,true); doc.setFont(FF,'bold'); doc.setFontSize(FS(7));
         } else if(alt){
-          setColor([241,245,249]); doc.rect(M,yy,IW,rowH,'F');
-          setColor(C.textR,true); doc.setFont(FF,'normal'); doc.setFontSize(FS(8));
+          setColor([244,247,251]); doc.rect(M,yy,IW,rowH,'F');
+          setColor(C.textR,true); doc.setFont(FF,'normal'); doc.setFontSize(FS(7.5));
         } else {
-          setColor(C.textR,true); doc.setFont(FF,'normal'); doc.setFontSize(FS(8));
+          setColor([255,255,255]); doc.rect(M,yy,IW,rowH,'F');
+          setColor(C.textR,true); doc.setFont(FF,'normal'); doc.setFontSize(FS(7.5));
+        }
+        // Borde exterior de la fila (no header)
+        if(!header){
+          doc.setDrawColor(225,230,238); doc.setLineWidth(.15);
+          doc.rect(M,yy,IW,rowH,'S');
         }
         let xc = M;
         cols.forEach((c,i)=>{
           const w      = widths[i] || 30;
-          const maxW   = w - 6;
+          const maxW   = w - 5;
           const val    = String(c ?? '');
           const trunc  = doc.splitTextToSize(val, maxW)[0] || '';
-          // Centrar en columnas estrechas (≤26mm) o en encabezados
           const center = header || w <= 26;
           if(center){
-            doc.text(trunc, xc + w/2, yy+5.5, {align:'center'});
+            doc.text(trunc, xc + w/2, yy+(header?6:5.5), {align:'center'});
           } else {
-            txt(trunc, xc+3, yy+5.5);
+            txt(trunc, xc+3, yy+(header?6:5.5));
           }
-          // Separador vertical entre columnas (sutil)
-          if(i < cols.length-1){
-            doc.setDrawColor(...C.lineR); doc.setLineWidth(.1);
-            doc.line(xc+w, yy+1, xc+w, yy+rowH-1);
+          // Separador vertical entre columnas
+          if(i < cols.length-1 && !header){
+            doc.setDrawColor(215,220,228); doc.setLineWidth(.1);
+            doc.line(xc+w, yy+1.5, xc+w, yy+rowH-1.5);
           }
           xc += w;
         });
-        doc.setDrawColor(...C.lineR); doc.setLineWidth(.2);
+        // Línea base
+        doc.setDrawColor(...(header?C.goldR:C.lineR)); doc.setLineWidth(header?.4:.15);
         doc.line(M, yy+rowH, PW-M, yy+rowH);
         return rowH;
       };
@@ -12288,6 +12436,183 @@ const Exportar = () => {
         });
         y += RESP_BOX_H + 6;
       } // fin mostrarResponsablesInforme
+
+      // ══════════════════════════════════════════════════════════
+      // VISITAS A CLIENTES — Sección integrada desde el módulo VisitaCliente
+      // ══════════════════════════════════════════════════════════
+      const SATISF_LABEL = {excelente:'Excelente',buena:'Buena',regular:'Regular',mala:'Mala'};
+      const ESTADO_VIS_PDF = {realizada:'Realizada',programada:'Programada',cancelada:'Cancelada',reprogramada:'Reprogramada'};
+      const visitasAll = (DB.get('visitas_cliente')||[]).filter(v=>v.clienteId&&v.fecha);
+      // Filtrar según el tipo de informe
+      const visitasF = visitasAll.filter(v=>{
+        if(clienteId && v.clienteId !== clienteId) return false;
+        if(responsableId && v.responsableId !== responsableId) return false;
+        return true;
+      }).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+
+      if(visitasF.length > 0){
+        chkPage(30);
+        sectionHeader('VISITAS A CLIENTES ('+visitasF.length+')');
+
+        // Tabla resumen de visitas — anchos proporcionales al contenido
+        const vHeaders = miembro
+          ? ['Fecha','Cliente','Estado','Satisfaccion','Temas','Compromisos']
+          : cli
+            ? ['Fecha','Responsable','Estado','Satisfaccion','Temas','Compromisos']
+            : ['Fecha','Cliente','Responsable','Estado','Satisfaccion','Temas'];
+
+        // Anchos proporcionales: nombres más ancho, estado/satisfacción compactos
+        const vWidths = miembro||cli
+          ? [24, IW-24-28-30-18-22, 28, 30, 18, 22]    // Fecha(24) Cliente/Resp(ancho) Estado(28) Satisf(30) Temas(18) Compr(22)
+          : [22, (IW-22-28-30-18)*0.55, (IW-22-28-30-18)*0.45, 28, 30, 18]; // 2 nombres
+
+        // Header de tabla con tableRow
+        setColor(C.navyR); doc.rect(M, y, IW, 9, 'F');
+        doc.setFillColor(Math.max(C.navyR[0]-8,0),Math.max(C.navyR[1]-12,0),Math.max(C.navyR[2]-16,0));
+        doc.rect(M, y+6, IW, 3, 'F');
+        setColor(ACENTO_R,true); doc.setFont(FF,'bold'); doc.setFontSize(FS(6.5));
+        let hx = M;
+        vHeaders.forEach((h,i)=>{ txt(h, hx+3, y+6); hx += vWidths[i]; });
+        doc.setDrawColor(...C.goldR); doc.setLineWidth(.4); doc.line(M, y+9, PW-M, y+9);
+        y += 11;
+
+        // Filas de visitas (máx 15)
+        visitasF.slice(0,15).forEach((v,idx)=>{
+          chkPage(12);
+          const bg = idx%2===0 ? [248,250,252] : [255,255,255];
+          setColor(bg); doc.rect(M, y, IW, 9, 'F');
+          doc.setDrawColor(225,230,238); doc.setLineWidth(.15); doc.rect(M, y, IW, 9, 'S');
+
+          doc.setFont(FF,'normal'); doc.setFontSize(FS(6.5)); setColor(C.textR,true);
+          const vCli  = clientes.find(c=>c.id===v.clienteId);
+          const vResp = equipo.find(e=>e.id===v.responsableId);
+          const temas = (v.temas||[]).length;
+          const comps = (v.compromisos||[]).length;
+          const compsCump = (v.compromisos||[]).filter(c=>c.cumplido).length;
+          const satLabel = SATISF_LABEL[v.satisfaccion]||v.satisfaccion||'--';
+
+          let cx = M;
+          // Fecha
+          txt(cleanTxt(fmt.date(v.fecha)), cx+3, y+6); cx += vWidths[0];
+          // Cliente o Responsable según tipo
+          if(miembro){
+            const maxChars = Math.floor(vWidths[1]/2.2);
+            txt(cleanTxt((vCli?.nombre||'--').substring(0,maxChars)), cx+3, y+6); cx += vWidths[1];
+          } else if(cli){
+            const maxChars = Math.floor(vWidths[1]/2.2);
+            txt(cleanTxt((vResp?.nombre||'--').substring(0,maxChars)), cx+3, y+6); cx += vWidths[1];
+          } else {
+            const maxC1 = Math.floor(vWidths[1]/2.2);
+            const maxC2 = Math.floor(vWidths[2]/2.2);
+            txt(cleanTxt((vCli?.nombre||'--').substring(0,maxC1)), cx+3, y+6); cx += vWidths[1];
+            txt(cleanTxt((vResp?.nombre||'--').substring(0,maxC2)), cx+3, y+6); cx += vWidths[2];
+          }
+          // Estado
+          const estLabel = ESTADO_VIS_PDF[v.estado]||v.estado||'--';
+          setColor(v.estado==='realizada'?[34,197,94]:v.estado==='cancelada'?[239,68,68]:[201,168,76],true);
+          doc.setFont(FF,'bold'); txt(cleanTxt(estLabel), cx+3, y+6); cx += vWidths[miembro||cli?2:3];
+          // Satisfacción
+          setColor(v.satisfaccion==='excelente'?[34,197,94]:v.satisfaccion==='buena'?[201,168,76]:v.satisfaccion==='regular'?[249,115,22]:[239,68,68],true);
+          doc.setFont(FF,'normal'); txt(cleanTxt(satLabel), cx+3, y+6); cx += vWidths[miembro||cli?3:4];
+          // Temas o Compromisos
+          setColor(C.textR,true);
+          if(miembro||cli){
+            txt(String(temas), cx+3, y+6); cx += vWidths[4];
+            txt(compsCump+'/'+comps, cx+3, y+6);
+          } else {
+            txt(temas+' tema'+(temas!==1?'s':''), cx+3, y+6);
+          }
+          // Separadores verticales sutiles
+          let sx = M;
+          for(let i=0;i<vWidths.length-1;i++){
+            sx += vWidths[i];
+            doc.setDrawColor(215,220,228); doc.setLineWidth(.1);
+            doc.line(sx, y+1.5, sx, y+7.5);
+          }
+          y += 9;
+        });
+
+        if(visitasF.length>15){
+          y+=3; setColor(C.mutedR,true); doc.setFont(FF,'italic'); doc.setFontSize(FS(7));
+          txt(`... y ${visitasF.length-15} visita(s) adicional(es)`, M+3, y); y+=4;
+        }
+
+        // Detalle de cada visita (resultado, temas y compromisos)
+        y+=8;
+        visitasF.slice(0,8).forEach((v,vi)=>{
+          const vCli  = clientes.find(c=>c.id===v.clienteId);
+          const temas = v.temas||[];
+          const comps = v.compromisos||[];
+          if(!v.resultado && temas.length===0 && comps.length===0) return;
+
+          chkPage(30);
+          // Sub-header con fecha, cliente y estado
+          y = subHeader(`${fmt.date(v.fecha)} — ${vCli?.nombre||'Cliente'}`, y);
+          // Estado y satisfacción inline
+          const estLbl = ESTADO_VIS_PDF[v.estado]||'';
+          const satLbl = SATISF_LABEL[v.satisfaccion]||'';
+          if(estLbl||satLbl){
+            doc.setFontSize(FS(6.5));
+            if(estLbl){ setColor(v.estado==='realizada'?[34,197,94]:v.estado==='cancelada'?[239,68,68]:ACENTO_R,true); doc.setFont(FF,'bold'); txt(cleanTxt(estLbl), M+5, y); }
+            if(satLbl){ setColor(C.mutedR,true); doc.setFont(FF,'normal'); txt(cleanTxt('Satisfaccion: '+satLbl), M+40, y); }
+            y+=6;
+          }
+
+          // Resultado
+          if(v.resultado){
+            chkPage(12);
+            setColor(C.navyR,true); doc.setFont(FF,'bold'); doc.setFontSize(FS(6.5));
+            txt('Resultado:', M+5, y); y+=5;
+            doc.setFont(FF,'normal'); setColor(C.textR,true); doc.setFontSize(FS(7));
+            const resLines = doc.splitTextToSize(cleanTxt(v.resultado), IW-10);
+            resLines.slice(0,4).forEach(ln=>{ chkPage(6); txt(ln, M+7, y); y+=4.5; });
+            y+=3;
+          }
+
+          // Temas tratados
+          if(temas.length>0){
+            chkPage(12);
+            setColor(C.navyR,true); doc.setFont(FF,'bold'); doc.setFontSize(FS(6.5));
+            txt('Temas Tratados ('+temas.length+'):', M+5, y); y+=5;
+            temas.slice(0,6).forEach(t=>{
+              chkPage(6);
+              const disc = t.discutido;
+              setColor(disc?[34,197,94]:C.mutedR,true); doc.setFont(FF,'normal'); doc.setFontSize(FS(6.5));
+              txt((disc?'[OK] ':'[  ] ')+cleanTxt((t.descripcion||'').substring(0,75)), M+7, y); y+=4.5;
+            });
+            if(temas.length>6){ setColor(C.mutedR,true); doc.setFontSize(FS(6)); txt(`... y ${temas.length-6} tema(s) mas`, M+7, y); y+=4; }
+            y+=2;
+          }
+
+          // Compromisos
+          if(comps.length>0){
+            chkPage(12);
+            setColor(C.navyR,true); doc.setFont(FF,'bold'); doc.setFontSize(FS(6.5));
+            txt('Compromisos ('+comps.length+'):', M+5, y); y+=5;
+            comps.slice(0,6).forEach(c=>{
+              chkPage(6);
+              const resp = c.responsable==='integra'?'Integra':'Cliente';
+              setColor(c.cumplido?[34,197,94]:C.textR,true); doc.setFont(FF,'normal'); doc.setFontSize(FS(6.5));
+              txt((c.cumplido?'[OK] ':'[  ] ')+cleanTxt((c.titulo||c.descripcion||'').substring(0,55))+' ['+resp+']', M+7, y);
+              // Fecha compromiso
+              if(c.fechaCompromiso){
+                setColor(C.mutedR,true); doc.setFontSize(FS(5.5));
+                txt(cleanTxt(fmt.date(c.fechaCompromiso)), PW-M-25, y);
+              }
+              y+=4.5;
+            });
+            if(comps.length>6){ setColor(C.mutedR,true); doc.setFontSize(FS(6)); txt(`... y ${comps.length-6} compromiso(s) mas`, M+7, y); y+=4; }
+            y+=2;
+          }
+          y += 3; hrLine(y); y += 6;
+        });
+
+        if(visitasF.length>8){
+          setColor(C.mutedR,true); doc.setFont(FF,'italic'); doc.setFontSize(FS(7));
+          txt(`Detalle completo disponible en el modulo Visita a Cliente (${visitasF.length-8} visitas adicionales)`, M+3, y);
+          y+=8;
+        }
+      } // fin visitasF
 
       // ── CONCLUSIÓN (si existe en textosSeccion) ─────────────
       if(pCfg.textosSeccion?.conclusion?.trim()) {
