@@ -791,6 +791,24 @@ textarea.inp{resize:vertical;min-height:80px}
   @media (prefers-reduced-motion:reduce){
     .ip-silver-sweep,.ip-silver-card,.ip-silver-edge{animation:none}
   }
+  /* ── Modal post-login — adaptación a pantalla de móvil ── */
+  .ip-lm-overlay{
+    padding:16px;
+    padding-top:max(16px,env(safe-area-inset-top));
+    padding-bottom:max(16px,env(safe-area-inset-bottom));
+  }
+  .ip-lm-card{display:flex;flex-direction:column}
+  .ip-lm-list{flex:1 1 auto;min-height:0;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+  @media(max-width:640px){
+    .ip-lm-overlay{padding:10px;
+      padding-top:max(10px,env(safe-area-inset-top));
+      padding-bottom:max(10px,env(safe-area-inset-bottom));}
+    .ip-lm-card{max-height:93vh!important;border-radius:16px!important}
+    .ip-lm-head{padding:20px 18px 0!important}
+    .ip-lm-list{padding:12px 18px 4px!important;max-height:none!important}
+    .ip-lm-foot{padding:12px 18px 16px!important}
+    .ip-lm-kpi{padding:11px 13px!important}
+  }
   .notif-panel-head{
     padding:16px 18px;border-bottom:1px solid rgba(36,52,71,.5);
     display:flex;align-items:center;justify-content:space-between;
@@ -15782,8 +15800,16 @@ const App = () => {
 
   useEffect(()=>{
     if(!user || loginAlertShownRef.current) return;
-    // Pequeño delay para garantizar que los datos de localStorage estén hidratados
-    const timer = setTimeout(()=>{
+    // MÓVIL: en el primer acceso desde un dispositivo la caché local aún no está
+    // hidratada a los 800 ms (Firestore sincroniza de forma asíncrona y la red móvil
+    // es más lenta). Una única lectura devolvía 0 tareas y marcaba el aviso como
+    // mostrado, por lo que el modal nunca llegaba a aparecer en el celular.
+    // Se reevalúa en una ventana acotada hasta que haya datos disponibles.
+    let intentos = 0;
+    const MAX_INTENTOS = 12;          // ~10 s de margen de sincronización
+    let timer = null;
+    const evaluar = ()=>{
+      if(loginAlertShownRef.current) return;
       const hoy = new Date().toISOString().split('T')[0];
       const tareasActual = JSON.parse(localStorage.getItem('ip_tareas')||'[]');
       const clientesActual = JSON.parse(localStorage.getItem('ip_clientes')||'[]');
@@ -15804,10 +15830,20 @@ const App = () => {
       if(vencidas.length>0||pendientes.length>0){
         setLoginAlertData({vencidas,pendientes});
         setShowLoginAlert(true);
+        loginAlertShownRef.current = true;
+        return;
       }
-      loginAlertShownRef.current = true;
-    }, 800);
-    return ()=>clearTimeout(timer);
+      // Sin resultados: solo se da por concluido si ya hay datos hidratados
+      // o si se agota la ventana de espera. En caso contrario, reintentar.
+      intentos++;
+      if(tareasActual.length>0 || intentos>=MAX_INTENTOS){
+        loginAlertShownRef.current = true;
+        return;
+      }
+      timer = setTimeout(evaluar, 800);
+    };
+    timer = setTimeout(evaluar, 800);
+    return ()=>{ if(timer) clearTimeout(timer); };
   },[user]);
 
   const toast = useCallback((msg,type='info')=>{
@@ -16084,10 +16120,11 @@ const App = () => {
         </div>;
       };
 
-      return <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.85)',backdropFilter:'blur(8px)',
-        zIndex:9500,display:'flex',alignItems:'center',justifyContent:'center',padding:16,
+      return <div className="ip-lm-overlay" style={{position:'fixed',inset:0,background:'rgba(0,0,0,.85)',
+        backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',
+        zIndex:9500,display:'flex',alignItems:'center',justifyContent:'center',
         animation:'notifSlide .35s cubic-bezier(.4,0,.2,1)'}}>
-        <div style={{
+        <div className="ip-lm-card" style={{
           width:'100%',maxWidth:560,maxHeight:'88vh',
           background:'linear-gradient(168deg,#18263a 0%,#111d2e 60%,#0e1825 100%)',
           border:'1px solid rgba(201,168,76,.2)',borderRadius:20,overflow:'hidden',
@@ -16101,7 +16138,7 @@ const App = () => {
             background:'linear-gradient(90deg,#C9A84C,rgba(226,232,240,.85),rgba(201,168,76,.3),transparent)',borderRadius:'20px 20px 0 0'}}/>
 
           {/* Header del modal */}
-          <div style={{padding:'28px 28px 0',position:'relative'}}>
+          <div className="ip-lm-head" style={{padding:'28px 28px 0',position:'relative',flexShrink:0}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
               <div>
                 <p style={{margin:0,fontSize:11,color:'#C9A84C',fontWeight:600,fontFamily:'Century Gothic,sans-serif',
@@ -16122,7 +16159,7 @@ const App = () => {
 
             {/* KPI resumen */}
             <div style={{display:'flex',gap:10,marginTop:18,marginBottom:6}}>
-              {vencidas.length>0&&<div className="ip-silver-card" style={{
+              {vencidas.length>0&&<div className="ip-silver-card ip-lm-kpi" style={{
                 flex:1,padding:'14px 16px',borderRadius:12,position:'relative',overflow:'hidden',
                 background:'linear-gradient(165deg,#1a2e47 0%,#132238 35%,#0e1a2b 100%)',
                 boxShadow:'0 1px 2px rgba(0,0,0,.5),0 4px 8px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.06)',
@@ -16134,7 +16171,7 @@ const App = () => {
                   textShadow:'0 0 20px rgba(248,113,113,.2)'}}>{vencidas.length}</p>
                 <p style={{margin:'4px 0 0',fontSize:10,color:'#94a3b8',fontFamily:'Century Gothic,sans-serif',fontWeight:600,textTransform:'uppercase',letterSpacing:'.4px'}}>Vencida{vencidas.length!==1?'s':''}</p>
               </div>}
-              {pendientes.length>0&&<div className="ip-silver-card" style={{
+              {pendientes.length>0&&<div className="ip-silver-card ip-lm-kpi" style={{
                 flex:1,padding:'14px 16px',borderRadius:12,position:'relative',overflow:'hidden',
                 background:'linear-gradient(165deg,#1a2e47 0%,#132238 35%,#0e1a2b 100%)',
                 boxShadow:'0 1px 2px rgba(0,0,0,.5),0 4px 8px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.06)',
@@ -16150,7 +16187,7 @@ const App = () => {
           </div>
 
           {/* Listados */}
-          <div style={{padding:'16px 28px 6px',maxHeight:'48vh',overflowY:'auto'}}>
+          <div className="ip-lm-list" style={{padding:'16px 28px 6px',maxHeight:'48vh',overflowY:'auto'}}>
             {vencidas.length>0&&<div style={{marginBottom:16}}>
               <p style={{fontSize:11,fontWeight:700,color:'#f87171',textTransform:'uppercase',letterSpacing:'.5px',
                 margin:'0 0 10px',display:'flex',alignItems:'center',gap:7,fontFamily:'Century Gothic,sans-serif'}}>
@@ -16176,8 +16213,8 @@ const App = () => {
           </div>
 
           {/* Footer */}
-          <div style={{padding:'14px 28px 22px',borderTop:'1px solid rgba(36,52,71,.5)',
-            display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
+          <div className="ip-lm-foot" style={{padding:'14px 28px 22px',borderTop:'1px solid rgba(36,52,71,.5)',
+            display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexShrink:0}}>
             <p style={{margin:0,fontSize:11,color:'#475569',fontFamily:'Century Gothic,sans-serif'}}>
               {totalItems} tarea{totalItems!==1?'s':''} requieren atención
             </p>
