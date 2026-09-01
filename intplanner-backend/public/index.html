@@ -770,6 +770,27 @@ textarea.inp{resize:vertical;min-height:80px}
     background:linear-gradient(90deg,#C9A84C,rgba(201,168,76,.3),transparent);border-radius:16px 16px 0 0;
   }
   @keyframes notifSlide{from{opacity:0;transform:translateY(-10px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+  /* ── Destellos plateados del modal post-login — ciclo de 3 s ── */
+  @keyframes ipSilverSweep{
+    0%{transform:translateX(-135%) skewX(-18deg);opacity:0}
+    6%{opacity:.5}
+    24%{opacity:.5}
+    34%{transform:translateX(235%) skewX(-18deg);opacity:0}
+    100%{transform:translateX(235%) skewX(-18deg);opacity:0}
+  }
+  @keyframes ipSilverRim{
+    0%,70%,100%{box-shadow:0 1px 2px rgba(0,0,0,.5),0 4px 8px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.06)}
+    16%{box-shadow:0 1px 2px rgba(0,0,0,.5),0 4px 8px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.24),0 0 18px rgba(226,232,240,.15)}
+  }
+  @keyframes ipSilverEdge{0%,100%{opacity:.4}14%{opacity:1}38%{opacity:.4}}
+  .ip-silver-sweep{position:absolute;top:0;left:0;width:40%;height:100%;pointer-events:none;z-index:6;
+    background:linear-gradient(100deg,transparent 0%,rgba(226,232,240,.04) 28%,rgba(241,245,249,.20) 50%,rgba(226,232,240,.04) 72%,transparent 100%);
+    animation:ipSilverSweep 3s cubic-bezier(.4,0,.2,1) infinite}
+  .ip-silver-card{animation:ipSilverRim 3s ease-in-out infinite}
+  .ip-silver-edge{animation:ipSilverEdge 3s ease-in-out infinite}
+  @media (prefers-reduced-motion:reduce){
+    .ip-silver-sweep,.ip-silver-card,.ip-silver-edge{animation:none}
+  }
   .notif-panel-head{
     padding:16px 18px;border-bottom:1px solid rgba(36,52,71,.5);
     display:flex;align-items:center;justify-content:space-between;
@@ -3384,8 +3405,6 @@ const Header = ({title,user,onLogout,backup,onMobOpen}) => {
   const [queueN,     setQueueN]    = React.useState(0);
   const [lastBackup, setLastBackup]= React.useState(()=>window.AutoBackup?.last()||backup);
   const [pushOn,     setPushOn]    = React.useState(()=>typeof Notification!=='undefined'&&Notification.permission==='granted'&&window.PushSvc?.getCfg()?.enabled!==false);
-  const [notifOpen,  setNotifOpen] = React.useState(false);
-  const notifRef = React.useRef(null);
 
   React.useEffect(()=>{
     const upd = () => {
@@ -3395,56 +3414,19 @@ const Header = ({title,user,onLogout,backup,onMobOpen}) => {
     };
     const onBackup = (e) => setLastBackup(e.detail);
     const onPush   = ()  => setPushOn(true);
-    const clickOut = (e) => { if(notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false); };
     window.addEventListener('online',  upd);
     window.addEventListener('offline', upd);
     window.addEventListener('ip-backup-updated', onBackup);
     window.addEventListener('ip-push-ready',     onPush);
-    document.addEventListener('mousedown', clickOut);
     const t = setInterval(upd, 5000);
     return ()=>{
       window.removeEventListener('online',  upd);
       window.removeEventListener('offline', upd);
       window.removeEventListener('ip-backup-updated', onBackup);
       window.removeEventListener('ip-push-ready',     onPush);
-      document.removeEventListener('mousedown', clickOut);
       clearInterval(t);
     };
   },[]);
-
-  // ── Calcular notificaciones en tiempo real ──────────────
-  const hoyStr = new Date().toISOString().split('T')[0];
-  const PAGADOS_N = ['Pagada','pagada','Paz y Salvo','Paz Y Salvo'];
-
-  const notifs = React.useMemo(()=>{
-    const items = [];
-    // 1. Tareas vencidas
-    tareas.filter(t=>!t.esAlerta&&t.fechaVen&&t.fechaVen<hoyStr&&t.estado!=='completada'&&t.estado!=='cancelada').forEach(t=>{
-      items.push({type:'vencida',color:'#f87171',icon:'clock',title:t.titulo,sub:clientes.find(c=>c.id===t.clienteId)?.nombre||'',detail:`Venció ${fmt.date(t.fechaVen)}`});
-    });
-    // 2. Facturas por cobrar (pendientes/enviadas/vencidas)
-    facturas.filter(f=>!PAGADOS_N.includes(f.estado)).forEach(f=>{
-      const cli=clientes.find(c=>c.id===f.clienteId);
-      const total=(Number(f.valor)||0)*(f.iva?1.19:1);
-      items.push({type:'cobro',color:'#C9A84C',icon:'money',title:`#${f.numero} — ${fmt.cop(total)}`,sub:cli?.nombre||'',detail:f.estado+(f.fechaVen?` · Vence ${fmt.date(f.fechaVen)}`:'')});
-    });
-    // 3. Tareas próximas (7 días)
-    tareas.filter(t=>{if(t.esAlerta||t.estado==='completada'||t.estado==='cancelada')return false;const d=new Date(t.fechaVen+'T12:00:00');const df=(d-new Date())/86400000;return df>=0&&df<=7;}).forEach(t=>{
-      items.push({type:'proxima',color:'#60a5fa',icon:'calendar',title:t.titulo,sub:clientes.find(c=>c.id===t.clienteId)?.nombre||'',detail:`Vence ${fmt.rel(t.fechaVen)}`});
-    });
-    // 4. Compromisos pendientes (de visitas)
-    const visitasData = DB.get('visitas_cliente')||[];
-    visitasData.forEach(v=>{
-      (v.compromisos||[]).filter(c=>!c.cumplido&&c.fechaCompromiso&&c.fechaCompromiso<=hoyStr).forEach(c=>{
-        items.push({type:'compromiso',color:'#c084fc',icon:'check',title:c.titulo||c.descripcion||'Compromiso',sub:clientes.find(cl=>cl.id===v.clienteId)?.nombre||'',detail:`Fecha: ${fmt.date(c.fechaCompromiso)}`});
-      });
-    });
-    return items;
-  },[tareas,facturas,clientes,hoyStr]);
-
-  const groupLabels = {vencida:'Tareas Vencidas',cobro:'Facturas por Cobrar',proxima:'Próximos 7 Días',compromiso:'Compromisos Pendientes'};
-  const grouped = ['vencida','cobro','proxima','compromiso'].map(type=>({type,label:groupLabels[type],items:notifs.filter(n=>n.type===type)})).filter(g=>g.items.length>0);
-  const totalNotifs = notifs.length;
 
   return (
   <div className="topbar">
@@ -3481,63 +3463,6 @@ const Header = ({title,user,onLogout,backup,onMobOpen}) => {
         <span className="mob-hide">Buscar</span>
         <kbd style={{fontSize:9,background:'#1e2d42',padding:'1px 5px',borderRadius:3,border:'1px solid #334155',color:'#475569',marginLeft:2}}>⌃K</kbd>
       </button>
-
-      {/* ── CENTRO DE NOTIFICACIONES PREMIUM ── */}
-      <div className="notif-wrap" ref={notifRef}>
-        <button className={clx('notif-bell',totalNotifs>0&&'has-notifs')} onClick={()=>setNotifOpen(p=>!p)}
-          title={`${totalNotifs} notificacion${totalNotifs!==1?'es':''}`}>
-          <Ico n="bell" s={16}/>
-          {totalNotifs>0&&<span className="notif-badge">{totalNotifs>99?'99+':totalNotifs}</span>}
-        </button>
-
-        {notifOpen&&<div className="notif-panel">
-          <div className="notif-panel-head">
-            <div style={{display:'flex',alignItems:'center',gap:9}}>
-              <div style={{width:28,height:28,borderRadius:8,background:'linear-gradient(135deg,rgba(201,168,76,.12),rgba(201,168,76,.04))',
-                border:'1px solid rgba(201,168,76,.18)',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                <Ico n="bell" s={13} c="#C9A84C"/>
-              </div>
-              <span style={{fontSize:14,fontWeight:700,color:'#e8ecf1',fontFamily:'Century Gothic,sans-serif'}}>Notificaciones</span>
-              {totalNotifs>0&&<span style={{fontSize:10,fontWeight:700,color:'#C9A84C',background:'rgba(201,168,76,.1)',border:'1px solid rgba(201,168,76,.2)',borderRadius:99,padding:'2px 9px',fontFamily:'Century Gothic,sans-serif'}}>{totalNotifs}</span>}
-            </div>
-            <button onClick={()=>setNotifOpen(false)} style={{background:'none',border:'1px solid rgba(36,52,71,.5)',borderRadius:8,color:'#556b84',cursor:'pointer',padding:5,transition:'all .2s'}}
-              onMouseOver={e=>e.currentTarget.style.color='#C9A84C'} onMouseOut={e=>e.currentTarget.style.color='#556b84'}>
-              <Ico n="close" s={13}/>
-            </button>
-          </div>
-          <div className="notif-panel-body">
-            {totalNotifs===0&&<div style={{textAlign:'center',padding:'36px 16px'}}>
-              <div style={{width:48,height:48,borderRadius:14,background:'rgba(74,222,128,.08)',border:'1px solid rgba(74,222,128,.15)',
-                display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px'}}>
-                <Ico n="check" s={22} c="#4ade80"/>
-              </div>
-              <p style={{margin:0,fontSize:14,fontWeight:700,color:'#e8ecf1',fontFamily:'Century Gothic,sans-serif'}}>Todo al dia</p>
-              <p style={{margin:'6px 0 0',fontSize:12,color:'#556b84',fontFamily:'Century Gothic,sans-serif'}}>Sin notificaciones pendientes</p>
-            </div>}
-            {grouped.map(g=>{
-              const groupIcons = {vencida:'clock',cobro:'money',proxima:'calendar',compromiso:'check'};
-              return <div key={g.type} className="notif-group">
-                <div className="notif-group-head">
-                  <Ico n={groupIcons[g.type]||'bell'} s={11} c={g.items[0].color}/>
-                  {g.label}
-                  <span style={{marginLeft:'auto',fontSize:9,fontWeight:700,color:g.items[0].color,background:`${g.items[0].color}12`,border:`1px solid ${g.items[0].color}22`,borderRadius:99,padding:'2px 7px',fontFamily:'Century Gothic,sans-serif'}}>{g.items.length}</span>
-                </div>
-                {g.items.slice(0,5).map((n,i)=>(
-                  <div key={i} className="notif-item">
-                    <div className="notif-dot" style={{background:n.color,boxShadow:`0 0 8px ${n.color}44`}}/>
-                    <div style={{flex:1,minWidth:0}}>
-                      <p style={{margin:0,fontSize:12,fontWeight:600,color:'#e8ecf1',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontFamily:'Century Gothic,sans-serif'}}>{n.title}</p>
-                      {n.sub&&<p style={{margin:'2px 0 0',fontSize:10,color:'#556b84',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontFamily:'Century Gothic,sans-serif'}}>{n.sub}</p>}
-                      <p style={{margin:'4px 0 0',fontSize:9.5,color:n.color,fontFamily:'Century Gothic,sans-serif',fontWeight:600}}>{n.detail}</p>
-                    </div>
-                  </div>
-                ))}
-                {g.items.length>5&&<p style={{fontSize:10,color:g.items[0].color,textAlign:'center',margin:'8px 0 2px',fontWeight:700,fontFamily:'Century Gothic,sans-serif'}}>+{g.items.length-5} mas</p>}
-              </div>;
-            })}
-          </div>
-        </div>}
-      </div>
 
       {/* Indicador auto-backup */}
       <div className="mob-hide" title={lastBackup?`Último backup: ${new Date(lastBackup.ts).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})}`:''} style={{display:'flex',alignItems:'center',gap:6,fontSize:11,fontWeight:600,padding:'4px 12px',borderRadius:20,border:'1px solid',borderColor:lastBackup?'rgba(74,222,128,.25)':'#243447',background:lastBackup?'rgba(26,107,58,.15)':'transparent',color:lastBackup?'#4ade80':'#475569'}}>
@@ -6379,6 +6304,21 @@ const Calendario = () => {
                 background:chip.bg, color:chip.color}}>{t.tipo}</span>
             )}
             {!t.esAlerta&&<SBadge s={t.prioridad==='urgente'?'urgente':t.estado}/>}
+            {/* ── Acciones Editar / Eliminar — solo Reunión y Capacitación ── */}
+            {(t.tipo==='Reunión'||t.tipo==='Capacitación')&&(
+              <div style={{display:'flex',gap:3,flexShrink:0,marginLeft:4}}>
+                <button onClick={(e)=>{e.stopPropagation();setDiaSeleccionado(null);setTipoEvento(t.tipo==='Reunión'?'reunion':'capacitacion');setFormEvento({...t,fecha:t.fechaVen});setOpenEvento(true);}}
+                  title="Editar evento"
+                  style={{background:'none',border:'1px solid #243447',borderRadius:5,padding:'2px 6px',cursor:'pointer',color:'#94a3b8',fontSize:10,transition:'all .2s'}}>
+                  ✏️
+                </button>
+                <button onClick={(e)=>{e.stopPropagation();setDelEvento(t.id);}}
+                  title="Eliminar evento"
+                  style={{background:'none',border:'1px solid rgba(248,113,113,.3)',borderRadius:5,padding:'2px 6px',cursor:'pointer',color:'#f87171',fontSize:10,transition:'all .2s'}}>
+                  🗑️
+                </button>
+              </div>
+            )}
           </div>
           {(resp||cli||t.horaInicio||t.lugar)&&(
             <div style={{display:'flex',flexWrap:'wrap',gap:10,paddingLeft:21,fontSize:11,color:'#64748b'}}>
@@ -6599,7 +6539,7 @@ const CompTareaForm = ({comp, idx, equipo, clientes, proyectos, toast, onUpdate,
 
             {/* Descripción */}
             <F label="Descripción / Notas" col2>
-              <textarea className="inp" value={comp.desc||''} rows={2}
+              <textarea className="inp" value={comp.desc||''} rows={4} maxLength={1000}
                 onChange={e=>updField('desc',e.target.value)}/>
             </F>
 
@@ -6612,9 +6552,9 @@ const CompTareaForm = ({comp, idx, equipo, clientes, proyectos, toast, onUpdate,
                   requerido para informe
                 </span>
               </span>} col2>
-                <textarea className="inp" value={comp.actividadesRealizadas||''} rows={3}
+                <textarea className="inp" value={comp.actividadesRealizadas||''} rows={5} maxLength={1000}
                   placeholder="Describa las actividades ejecutadas..."
-                  style={{border:'1px solid rgba(74,222,128,.35)',minHeight:80}}
+                  style={{border:'1px solid rgba(74,222,128,.35)',minHeight:100}}
                   onChange={e=>updField('actividadesRealizadas',e.target.value)}/>
               </F>
             )}
@@ -6624,7 +6564,7 @@ const CompTareaForm = ({comp, idx, equipo, clientes, proyectos, toast, onUpdate,
               <F label={<span style={{display:'flex',alignItems:'center',gap:6}}>
                 <span>📋</span>Reporte Informe de Gestión
               </span>} col2>
-                <textarea className="inp" value={comp.reporteInforme||''} rows={2}
+                <textarea className="inp" value={comp.reporteInforme||''} rows={4} maxLength={1000}
                   placeholder="Texto para el informe mensual..."
                   onChange={e=>updField('reporteInforme',e.target.value)}/>
               </F>
@@ -7331,6 +7271,21 @@ const VisitaCliente = () => {
         gestion_calidad:'Gestión Calidad',ambiental:'Ambiental',i_d:'I+D'
       };
 
+      // ── MOTOR TIPOGRÁFICO (control de ancho / anti-superposición) ──
+      // Mide con la fuente y tamaño ACTIVOS y recorta con elipsis para que
+      // ningún texto invada la columna vecina ni el borde de página.
+      const fitText = (txt, maxW) => {
+        const s = String(txt === undefined || txt === null ? '' : txt);
+        if(!(maxW > 0) || s === '') return s;
+        if(doc.getTextWidth(s) <= maxW) return s;
+        let lo = 0, hi = s.length;
+        while(lo < hi){
+          const mid = Math.ceil((lo + hi) / 2);
+          if(doc.getTextWidth(s.slice(0, mid) + '...') <= maxW) lo = mid; else hi = mid - 1;
+        }
+        return lo > 0 ? s.slice(0, lo).replace(/\s+$/, '') + '...' : '';
+      };
+
       // ── BORDE EXTERIOR ───────────────────────────────────────
       doc.setDrawColor(30,58,95); doc.setLineWidth(0.6);
       doc.rect(8,8,PW-16,PH-16,'S');
@@ -7347,11 +7302,14 @@ const VisitaCliente = () => {
 
       // ── EMPRESA info (header derecho) ────────────────────────
       doc.setTextColor(255,255,255);
-      doc.setFont('helvetica','bold'); doc.setFontSize(13);
+      const HEAD_W = (PW-M) - (M+24) - 4;   // ancho libre a la derecha del logo
+      doc.setFont('helvetica','bold');
+      let empSize = 13; doc.setFontSize(empSize);
+      while(empSize > 8.5 && doc.getTextWidth(empresa) > HEAD_W){ empSize -= 0.5; doc.setFontSize(empSize); }
       doc.text(empresa, PW-M, 19, {align:'right'});
-      if(nit){ doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.text('NIT: '+nit, PW-M, 25, {align:'right'}); }
-      if(tel){ doc.setFontSize(8); doc.text('Tel: '+tel, PW-M, 30, {align:'right'}); }
-      if(emailCfg){ doc.setFontSize(7.5); doc.text(emailCfg, PW-M, 35, {align:'right'}); }
+      if(nit){ doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.text(fitText('NIT: '+nit, HEAD_W), PW-M, 25, {align:'right'}); }
+      if(tel){ doc.setFontSize(8); doc.text(fitText('Tel: '+tel, HEAD_W), PW-M, 30, {align:'right'}); }
+      if(emailCfg){ doc.setFontSize(7.5); doc.text(fitText(emailCfg, HEAD_W), PW-M, 35, {align:'right'}); }
 
       // ── TÍTULO DEL DOCUMENTO ────────────────────────────────
       doc.setFont('helvetica','bold'); doc.setFontSize(10);
@@ -7371,17 +7329,21 @@ const VisitaCliente = () => {
       y += 7;
 
       // Grid 2 columnas
-      const col1 = M+2;
-      const col2 = PW/2+2;
+      const col1  = M+2;
+      const col2  = PW/2+2;
       const cellH = 7.5;
+      const LBLG  = 26;                      // separación etiqueta -> valor
+      const LBLW  = LBLG - 2.5;              // ancho máximo de la etiqueta
+      const VALW1 = col2 - (col1+LBLG) - 3;  // ancho máximo del valor izquierdo
+      const VALW2 = (PW-M-2) - (col2+LBLG);  // ancho máximo del valor derecho
 
       const drawRow2 = (l1,v1,l2,v2) => {
         doc.setFillColor(248,250,253); doc.rect(M,y-5,PW-M*2,cellH,'F');
         doc.setDrawColor(220,230,245); doc.setLineWidth(0.15); doc.rect(M,y-5,PW-M*2,cellH,'S');
         doc.setFont('helvetica','bold'); doc.setTextColor(80,100,130); doc.setFontSize(7.5);
-        doc.text(l1, col1, y); doc.text(l2, col2, y);
+        doc.text(fitText(l1, LBLW), col1, y); doc.text(fitText(l2, LBLW), col2, y);
         doc.setFont('helvetica','normal'); doc.setTextColor(30,30,30); doc.setFontSize(8.5);
-        doc.text(v1||'—', col1+26, y); doc.text(v2||'—', col2+26, y);
+        doc.text(fitText(v1||'—', VALW1), col1+LBLG, y); doc.text(fitText(v2||'—', VALW2), col2+LBLG, y);
         y += cellH;
       };
       const drawRow1 = (lbl,val,width) => {
@@ -7389,9 +7351,9 @@ const VisitaCliente = () => {
         doc.setFillColor(248,250,253); doc.rect(M,y-5,w,cellH,'F');
         doc.setDrawColor(220,230,245); doc.setLineWidth(0.15); doc.rect(M,y-5,w,cellH,'S');
         doc.setFont('helvetica','bold'); doc.setTextColor(80,100,130); doc.setFontSize(7.5);
-        doc.text(lbl, col1, y);
+        doc.text(fitText(lbl, LBLW), col1, y);
         doc.setFont('helvetica','normal'); doc.setTextColor(30,30,30); doc.setFontSize(8.5);
-        doc.text(String(val||'—').substring(0,90), col1+26, y);
+        doc.text(fitText(String(val||'—'), (M+w) - (col1+LBLG) - 3), col1+LBLG, y);
         y += cellH;
       };
 
@@ -7402,16 +7364,19 @@ const VisitaCliente = () => {
 
       // ─── SECCIÓN 2: RESULTADO DE LA VISITA ──────────────────
       if(v.resultado){
+        const LH2 = 4.4;                                   // interlineado real a 8.5pt
+        doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+        const lines  = doc.splitTextToSize(String(v.resultado), PW-M*2-6);
+        const blockH = Math.max(lines.length*LH2+5, 11);
+        if(y + blockH + 8 > PH-28){ doc.addPage(); y = 24; }
         doc.setFillColor(30,58,95); doc.rect(M,y-6,PW-M*2,7,'F');
         doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
         doc.text('2. RESULTADO DE LA VISITA', M+2, y-0.5);
         y += 7;
-        const lines = doc.splitTextToSize(v.resultado, PW-M*2-6);
-        const blockH = Math.max(lines.length*5+6, 12);
         doc.setFillColor(252,253,255); doc.rect(M,y-5,PW-M*2,blockH,'F');
         doc.setDrawColor(220,230,245); doc.setLineWidth(0.15); doc.rect(M,y-5,PW-M*2,blockH,'S');
         doc.setFont('helvetica','normal'); doc.setTextColor(40,40,40); doc.setFontSize(8.5);
-        doc.text(lines, M+3, y);
+        lines.forEach((ln,i)=>doc.text(ln, M+3, y+i*LH2));
         y += blockH + 4;
       } else { y += 2; }
 
@@ -7421,16 +7386,26 @@ const VisitaCliente = () => {
         doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
         doc.text('3. TEMAS TRATADOS ('+(v.temas.length)+')', M+2, y-0.5);
         y += 7;
+        const TEMA_X = M+9.5;                    // inicio del texto tras la marca
         v.temas.forEach((t,i) => {
-          if(y > PH-25){ doc.addPage(); y=20; }
+          if(y > PH-28){ doc.addPage(); y=24; }
           const bgC = t.discutido ? [235,253,243] : [250,250,252];
           doc.setFillColor(...bgC); doc.rect(M, y-5, PW-M*2, 6.5, 'F');
           doc.setDrawColor(220,230,245); doc.setLineWidth(0.12); doc.rect(M,y-5,PW-M*2,6.5,'S');
-          doc.setFont('helvetica','bold'); doc.setFontSize(7);
-          doc.setTextColor(...(t.discutido?[22,163,74]:[100,116,139]));
-          doc.text(t.discutido?'✓':'○', M+3, y-0.5);
+          // Marca de estado vectorial: los glifos de check/círculo no existen
+          // en las fuentes base del PDF y se imprimían como caracteres rotos.
+          const mx = M+4.5, my = y-2.4;
+          if(t.discutido){
+            doc.setDrawColor(22,163,74); doc.setLineWidth(0.5);
+            doc.line(mx-1.5, my+0.1, mx-0.5, my+1.2);
+            doc.line(mx-0.5, my+1.2, mx+1.6, my-1.4);
+          } else {
+            doc.setDrawColor(148,163,184); doc.setLineWidth(0.35);
+            doc.circle(mx, my, 1.15, 'S');
+          }
+          const badgeW = t.discutido ? 17 : 0;   // reserva del sello DISCUTIDO
           doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(40,40,40);
-          doc.text(String(t.descripcion||'').substring(0,100), M+9, y-0.5);
+          doc.text(fitText(String(t.descripcion||''), (PW-M-3) - badgeW - TEMA_X), TEMA_X, y-0.5);
           if(t.discutido){ doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(22,163,74); doc.text('DISCUTIDO', PW-M-3, y-0.5,{align:'right'}); }
           y += 7;
         });
@@ -7444,30 +7419,39 @@ const VisitaCliente = () => {
         doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
         doc.text('4. COMPROMISOS / TAREAS ('+(v.compromisos.length)+')', M+2, y-0.5);
         y += 8;
+        // Rejilla de columnas medida en mm (x de inicio y ancho útil de cada celda)
+        const CX = [M+2, 108, 144, 172];
+        const CWD = [CX[1]-CX[0]-3, CX[2]-CX[1]-3, CX[3]-CX[2]-3, (PW-M-2)-CX[3]];
         // Encabezado tabla
         doc.setFillColor(230,236,245); doc.rect(M,y-5,PW-M*2,6.5,'F');
         doc.setTextColor(30,58,95); doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
-        doc.text('DESCRIPCIÓN',M+2,y-0.5);
-        doc.text('RESPONSABLE',PW*0.52,y-0.5);
-        doc.text('ESTADO',PW*0.69,y-0.5);
-        doc.text('VENCIMIENTO',PW*0.82,y-0.5);
+        doc.text('DESCRIPCIÓN',CX[0],y-0.5);
+        doc.text('RESPONSABLE',CX[1],y-0.5);
+        doc.text('ESTADO',CX[2],y-0.5);
+        doc.text('VENCIMIENTO',CX[3],y-0.5);
         y += 7;
+        const ROW_LH = 3.8;                    // interlineado de celda a 8pt
         v.compromisos.forEach((c,i) => {
-          if(y > PH-25){ doc.addPage(); y=20; }
+          // La descripción se reparte en varias líneas: ningún texto queda oculto.
+          doc.setFont('helvetica','normal'); doc.setFontSize(8);
+          const titulo   = String(c.titulo||c.descripcion||'—');
+          const tLines   = doc.splitTextToSize(titulo, CWD[0]);
+          const rowH     = Math.max(7, tLines.length*ROW_LH + 3.2);
+          if(y - 5 + rowH > PH-28){ doc.addPage(); y = 24; }
+          const midY     = y - 5 + rowH/2 + 1;   // línea base centrada de las columnas cortas
           const bg = i%2===0?[252,253,255]:[246,248,252];
-          doc.setFillColor(...bg); doc.rect(M,y-5,PW-M*2,7,'F');
-          doc.setDrawColor(220,230,245); doc.setLineWidth(0.12); doc.rect(M,y-5,PW-M*2,7,'S');
+          doc.setFillColor(...bg); doc.rect(M,y-5,PW-M*2,rowH,'F');
+          doc.setDrawColor(220,230,245); doc.setLineWidth(0.12); doc.rect(M,y-5,PW-M*2,rowH,'S');
           doc.setFont('helvetica','normal'); doc.setTextColor(40,40,40); doc.setFontSize(8);
-          const titulo = String(c.titulo||c.descripcion||'—').substring(0,55);
-          doc.text(titulo, M+2, y-0.5);
+          tLines.forEach((ln,k)=>doc.text(ln, CX[0], y-0.5+k*ROW_LH));
           doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
           const respColor = c.responsable==='integra'?[30,58,95]:[180,100,20];
           doc.setTextColor(...respColor);
-          doc.text(c.responsable==='integra'?'Integra':'Cliente', PW*0.52, y-0.5);
+          doc.text(fitText(c.responsable==='integra'?'Integra':'Cliente', CWD[1]), CX[1], midY);
           doc.setTextColor(40,40,40); doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
-          doc.text(String(c.estado||'—'), PW*0.69, y-0.5);
-          doc.text(c.fechaVen||'—', PW*0.82, y-0.5);
-          y += 7.5;
+          doc.text(fitText(String(c.estado||'—'), CWD[2]), CX[2], midY);
+          doc.text(fitText(c.fechaVen||'—', CWD[3]), CX[3], midY);
+          y += rowH + 0.5;
         });
         y += 3;
       }
@@ -7481,53 +7465,73 @@ const VisitaCliente = () => {
         y += 8;
         doc.setFillColor(230,236,245); doc.rect(M,y-5,PW-M*2,6.5,'F');
         doc.setTextColor(30,58,95); doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
-        doc.text('TÍTULO DE TAREA', M+2, y-0.5);
-        doc.text('ESTADO', PW*0.62, y-0.5);
-        doc.text('PRIORIDAD', PW*0.76, y-0.5);
-        doc.text('VENCIMIENTO', PW*0.88, y-0.5);
+        // Rejilla recalculada: la columna VENCIMIENTO se salía del marco
+        const TX = [M+2, 120, 150, 176];
+        const TWD = [TX[1]-TX[0]-3, TX[2]-TX[1]-3, TX[3]-TX[2]-3, (PW-M-2)-TX[3]];
+        doc.text('TÍTULO DE TAREA', TX[0], y-0.5);
+        doc.text('ESTADO', TX[1], y-0.5);
+        doc.text('PRIORIDAD', TX[2], y-0.5);
+        doc.text('VENCIMIENTO', TX[3], y-0.5);
         y += 7;
+        const TAR_LH = 3.8;                    // interlineado de celda a 8pt
         tareasV.forEach((t,i) => {
-          if(y > PH-22){ doc.addPage(); y=20; }
+          // El título se reparte en varias líneas: ningún texto queda oculto.
+          doc.setFont('helvetica','normal'); doc.setFontSize(8);
+          const tiLines = doc.splitTextToSize(String(t.titulo||'—'), TWD[0]);
+          const rowH    = Math.max(7, tiLines.length*TAR_LH + 3.2);
+          if(y - 5 + rowH > PH-28){ doc.addPage(); y = 24; }
+          const midY    = y - 5 + rowH/2 + 1;
           const bg = i%2===0?[252,253,255]:[246,248,252];
-          doc.setFillColor(...bg); doc.rect(M,y-5,PW-M*2,7,'F');
-          doc.setDrawColor(220,230,245); doc.setLineWidth(0.12); doc.rect(M,y-5,PW-M*2,7,'S');
+          doc.setFillColor(...bg); doc.rect(M,y-5,PW-M*2,rowH,'F');
+          doc.setDrawColor(220,230,245); doc.setLineWidth(0.12); doc.rect(M,y-5,PW-M*2,rowH,'S');
           doc.setFont('helvetica','normal'); doc.setTextColor(40,40,40); doc.setFontSize(8);
-          doc.text(String(t.titulo||'—').substring(0,60), M+2, y-0.5);
+          tiLines.forEach((ln,k)=>doc.text(ln, TX[0], y-0.5+k*TAR_LH));
           doc.setFontSize(7.5);
-          doc.text(String(t.estado||'—'), PW*0.62, y-0.5);
-          doc.text(String(t.prioridad||'—'), PW*0.76, y-0.5);
-          doc.text(t.fechaVen||'—', PW*0.88, y-0.5);
-          y += 7.5;
+          doc.text(fitText(String(t.estado||'—'), TWD[1]), TX[1], midY);
+          doc.text(fitText(String(t.prioridad||'—'), TWD[2]), TX[2], midY);
+          doc.text(fitText(t.fechaVen||'—', TWD[3]), TX[3], midY);
+          y += rowH + 0.5;
         });
         y += 3;
       }
 
       // ─── SECCIÓN 6: OBSERVACIONES ────────────────────────────
       if(v.observaciones){
-        if(y > PH-35){ doc.addPage(); y=20; }
+        const LH6 = 4.4;                                   // interlineado real a 8.5pt
+        doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+        const obsLines = doc.splitTextToSize(String(v.observaciones), PW-M*2-6);
+        const obsH = Math.max(obsLines.length*LH6+5, 10);
+        if(y + obsH + 8 > PH-28){ doc.addPage(); y = 24; }
         doc.setFillColor(30,58,95); doc.rect(M,y-6,PW-M*2,7,'F');
         doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
         doc.text('6. OBSERVACIONES', M+2, y-0.5);
         y += 7;
-        const obsLines = doc.splitTextToSize(v.observaciones, PW-M*2-6);
-        const obsH = Math.max(obsLines.length*5+6, 10);
         doc.setFillColor(252,253,255); doc.rect(M,y-5,PW-M*2,obsH,'F');
         doc.setDrawColor(220,230,245); doc.setLineWidth(0.15); doc.rect(M,y-5,PW-M*2,obsH,'S');
         doc.setFont('helvetica','normal'); doc.setTextColor(60,60,60); doc.setFontSize(8.5);
-        doc.text(obsLines, M+3, y);
+        obsLines.forEach((ln,i)=>doc.text(ln, M+3, y+i*LH6));
         y += obsH + 4;
       }
 
       // ─── FOOTER en cada página ───────────────────────────────
       const totalPages = doc.internal.getNumberOfPages();
+      const pieIzq = empresa+' · Generado: '+new Date().toLocaleDateString('es-CO');
       for(let p=1; p<=totalPages; p++){
         doc.setPage(p);
+        // Marco institucional replicado en páginas de continuación
+        if(p > 1){
+          doc.setDrawColor(30,58,95); doc.setLineWidth(0.6); doc.rect(8,8,PW-16,PH-16,'S');
+          doc.setDrawColor(201,168,76); doc.setLineWidth(0.2); doc.rect(10,10,PW-20,PH-20,'S');
+        }
+        // Pie reubicado dentro del marco (antes desbordaba el borde inferior)
         doc.setDrawColor(201,168,76); doc.setLineWidth(0.3);
-        doc.line(M, PH-14, PW-M, PH-14);
-        doc.setFillColor(20,40,75); doc.rect(M,PH-13,PW-M*2,8,'F');
+        doc.line(M, PH-20, PW-M, PH-20);
+        doc.setFillColor(20,40,75); doc.rect(M,PH-19,PW-M*2,8,'F');
         doc.setFont('helvetica','normal'); doc.setTextColor(200,200,200); doc.setFontSize(7);
-        doc.text(empresa+' · Generado: '+new Date().toLocaleDateString('es-CO'), M+2, PH-7.5);
-        doc.text('Pág. '+p+' / '+totalPages, PW-M-2, PH-7.5, {align:'right'});
+        const pagTxt = 'Pág. '+p+' / '+totalPages;
+        const pagW   = doc.getTextWidth(pagTxt);
+        doc.text(fitText(pieIzq, (PW-M-2) - (M+2) - pagW - 6), M+2, PH-13.5);
+        doc.text(pagTxt, PW-M-2, PH-13.5, {align:'right'});
       }
 
       const cliNombre = (cli?.nombre||'cliente').replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
@@ -7699,7 +7703,7 @@ const VisitaCliente = () => {
                 background:t.discutido?'rgba(74,222,128,.1)':'rgba(51,65,85,.3)',
                 color:t.discutido?'#4ade80':'#556b84',
                 border:`1px solid ${t.discutido?'rgba(74,222,128,.2)':'rgba(36,52,71,.6)'}`}}>
-                {t.discutido?'✓ ':'○ '}{t.descripcion.substring(0,28)}
+                {t.discutido?'✓ ':'○ '}{t.descripcion.substring(0,60)}
               </span>
             ))}
             {(v.temas||[]).length>5&&<span style={{fontSize:10,color:'#475569',fontFamily:'Century Gothic,sans-serif'}}>+{(v.temas||[]).length-5} mas</span>}
@@ -7786,11 +7790,11 @@ const VisitaCliente = () => {
           </select>
         </F>
         <F label="Resultado de la Visita" col2>
-          <textarea className="inp" value={form.resultado||''} onChange={upd('resultado')} rows={3}
+          <textarea className="inp" value={form.resultado||''} onChange={upd('resultado')} rows={5} maxLength={1000}
             placeholder="Resultado general, acuerdos alcanzados..."/>
         </F>
         <F label="Observaciones" col2>
-          <textarea className="inp" value={form.observaciones||''} onChange={upd('observaciones')} rows={2}
+          <textarea className="inp" value={form.observaciones||''} onChange={upd('observaciones')} rows={4} maxLength={1000}
             placeholder="Notas adicionales..."/>
         </F>
       </div>}
@@ -7966,7 +7970,7 @@ const VisitaCliente = () => {
           </select>
         </F>
         <F label="Descripción / Notas" col2>
-          <textarea className="inp" value={tareaForm.desc||''} onChange={updT('desc')} rows={2}/>
+          <textarea className="inp" value={tareaForm.desc||''} onChange={updT('desc')} rows={4} maxLength={1000}/>
         </F>
         {tareaForm.estado==='completada'&&(
           <F label={<span style={{display:'flex',alignItems:'center',gap:6}}>
@@ -7976,14 +7980,14 @@ const VisitaCliente = () => {
               para informe
             </span>
           </span>} col2>
-            <textarea className="inp" value={tareaForm.actividadesRealizadas||''} rows={3}
-              style={{border:'1px solid rgba(74,222,128,.35)',minHeight:80}}
+            <textarea className="inp" value={tareaForm.actividadesRealizadas||''} rows={5} maxLength={1000}
+              style={{border:'1px solid rgba(74,222,128,.35)',minHeight:100}}
               onChange={updT('actividadesRealizadas')}/>
           </F>
         )}
         {tareaForm.estado==='completada'&&(
           <F label="📋 Reporte Informe de Gestión" col2>
-            <textarea className="inp" value={tareaForm.reporteInforme||''} rows={2}
+            <textarea className="inp" value={tareaForm.reporteInforme||''} rows={4} maxLength={1000}
               onChange={updT('reporteInforme')}/>
           </F>
         )}
@@ -8235,7 +8239,7 @@ const VisitaCliente = () => {
                   <button type="button" onClick={()=>delC(si)} style={{background:'rgba(153,27,27,.3)',border:'1px solid rgba(248,113,113,.25)',borderRadius:5,color:'#fca5a5',fontSize:11,fontWeight:700,cursor:'pointer',padding:'2px 8px'}}>✕</button>
                 </div>
                 <textarea className="inp" value={comp2.descripcion||''} onChange={e=>updC(si,'descripcion',e.target.value)}
-                  placeholder="Descripción..." rows={2} style={{marginBottom:8,minHeight:56}}/>
+                  placeholder="Descripción..." rows={3} maxLength={1000} style={{marginBottom:8,minHeight:70}}/>
                 <div className="grid-2">
                   <div>
                     <label style={{fontSize:11,color:'#64748b',fontWeight:600,display:'block',marginBottom:4,textTransform:'uppercase',letterSpacing:'.4px'}}>Responsabilidad</label>
@@ -15771,6 +15775,41 @@ const App = () => {
   const [cargos,setCargos]=useState(()=>DB.get('cargos'));
   const backup=!!JSON.parse(localStorage.getItem('ip_backup')||'null');
 
+  // ── MODAL DE TAREAS PENDIENTES/VENCIDAS AL INICIAR SESIÓN ───
+  const [showLoginAlert, setShowLoginAlert] = useState(false);
+  const [loginAlertData, setLoginAlertData] = useState({vencidas:[],pendientes:[]});
+  const loginAlertShownRef = useRef(false);
+
+  useEffect(()=>{
+    if(!user || loginAlertShownRef.current) return;
+    // Pequeño delay para garantizar que los datos de localStorage estén hidratados
+    const timer = setTimeout(()=>{
+      const hoy = new Date().toISOString().split('T')[0];
+      const tareasActual = JSON.parse(localStorage.getItem('ip_tareas')||'[]');
+      const clientesActual = JSON.parse(localStorage.getItem('ip_clientes')||'[]');
+      const equipoActual = JSON.parse(localStorage.getItem('ip_equipo')||'[]');
+      const vencidas = tareasActual.filter(t=>!t.esAlerta&&t.fechaVen&&t.fechaVen<hoy&&t.estado!=='completada'&&t.estado!=='cancelada').map(t=>({
+        ...t, _clienteNombre: clientesActual.find(c=>c.id===t.clienteId)?.nombre||'',
+        _responsableNombre: equipoActual.find(e=>e.id===t.responsableId)?.nombre||'Sin asignar'
+      }));
+      // Pendientes: toda tarea abierta que aún no está vencida (con o sin fecha límite)
+      const pendientes = tareasActual.filter(t=>{
+        if(t.esAlerta||t.estado==='completada'||t.estado==='cancelada') return false;
+        if(t.fechaVen && t.fechaVen < hoy) return false;   // ya contabilizada en vencidas
+        return true;
+      }).map(t=>({
+        ...t, _clienteNombre: clientesActual.find(c=>c.id===t.clienteId)?.nombre||'',
+        _responsableNombre: equipoActual.find(e=>e.id===t.responsableId)?.nombre||'Sin asignar'
+      }));
+      if(vencidas.length>0||pendientes.length>0){
+        setLoginAlertData({vencidas,pendientes});
+        setShowLoginAlert(true);
+      }
+      loginAlertShownRef.current = true;
+    }, 800);
+    return ()=>clearTimeout(timer);
+  },[user]);
+
   const toast = useCallback((msg,type='info')=>{
     const id=uid();
     setToasts(p=>[...p,{id,msg,type}]);
@@ -16004,6 +16043,161 @@ const App = () => {
       tareas={tareas} clientes={clientes} equipo={equipo}
       proyectos={proyectos} facturas={facturas}
       onNav={m=>setMod(m)}/>
+    {/* ── MODAL TAREAS PENDIENTES / VENCIDAS — POST-LOGIN ── */}
+    {showLoginAlert&&(()=>{
+      const {vencidas,pendientes} = loginAlertData;
+      const totalItems = vencidas.length + pendientes.length;
+      const hoy = new Date();
+      const saludo = hoy.getHours()<12?'Buenos días':hoy.getHours()<18?'Buenas tardes':'Buenas noches';
+      const nombre = user?.nombre?.split(' ')[0] || 'Usuario';
+      const fechaHoy = hoy.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+      const TaskItem = ({t,isVencida}) => {
+        const diasVenc = Math.abs(Math.floor((new Date(t.fechaVen+'T12:00:00')-hoy)/86400000));
+        return <div style={{
+          display:'flex',alignItems:'flex-start',gap:12,padding:'12px 16px',marginBottom:6,borderRadius:10,
+          background:isVencida?'linear-gradient(135deg,rgba(153,27,27,.12),rgba(120,30,30,.06))':'linear-gradient(135deg,rgba(30,58,95,.15),rgba(20,40,70,.06))',
+          border:`1px solid ${isVencida?'rgba(248,113,113,.2)':'rgba(96,165,250,.15)'}`,
+          transition:'all .25s ease',
+        }}
+          onMouseOver={e=>{e.currentTarget.style.transform='translateX(3px)';e.currentTarget.style.borderColor=isVencida?'rgba(248,113,113,.4)':'rgba(96,165,250,.3)';}}
+          onMouseOut={e=>{e.currentTarget.style.transform='translateX(0)';e.currentTarget.style.borderColor=isVencida?'rgba(248,113,113,.2)':'rgba(96,165,250,.15)';}}>
+          <div style={{width:8,height:8,borderRadius:'50%',marginTop:5,flexShrink:0,
+            background:isVencida?'#f87171':'#60a5fa',
+            boxShadow:`0 0 8px ${isVencida?'rgba(248,113,113,.4)':'rgba(96,165,250,.3)'}`}}/>
+          <div style={{flex:1,minWidth:0}}>
+            <p style={{margin:0,fontSize:13,fontWeight:600,color:'#e8ecf1',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',
+              fontFamily:'Century Gothic,sans-serif'}}>{t.titulo}</p>
+            <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:4,fontSize:11,color:'#64748b',fontFamily:'Century Gothic,sans-serif'}}>
+              {t._responsableNombre&&<span>👤 {t._responsableNombre}</span>}
+              {t._clienteNombre&&<span>🏢 {t._clienteNombre}</span>}
+              <span style={{color:isVencida?'#f87171':'#60a5fa',fontWeight:600}}>
+                {isVencida?`⚠️ Venció hace ${diasVenc} día${diasVenc!==1?'s':''}`
+                          :(t.fechaVen?`📅 Vence ${fmt.rel(t.fechaVen)}`:'📅 Sin fecha límite')}
+              </span>
+            </div>
+          </div>
+          <span style={{fontSize:9,fontWeight:700,padding:'2px 8px',borderRadius:99,flexShrink:0,marginTop:2,textTransform:'uppercase',letterSpacing:'.3px',fontFamily:'Century Gothic,sans-serif',
+            background:t.prioridad==='urgente'?'rgba(153,27,27,.5)':t.prioridad==='alta'?'rgba(120,60,0,.4)':'rgba(30,58,95,.4)',
+            color:t.prioridad==='urgente'?'#fca5a5':t.prioridad==='alta'?'#fbbf24':'#93c5fd',
+          }}>{t.prioridad||'media'}</span>
+        </div>;
+      };
+
+      return <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.85)',backdropFilter:'blur(8px)',
+        zIndex:9500,display:'flex',alignItems:'center',justifyContent:'center',padding:16,
+        animation:'notifSlide .35s cubic-bezier(.4,0,.2,1)'}}>
+        <div style={{
+          width:'100%',maxWidth:560,maxHeight:'88vh',
+          background:'linear-gradient(168deg,#18263a 0%,#111d2e 60%,#0e1825 100%)',
+          border:'1px solid rgba(201,168,76,.2)',borderRadius:20,overflow:'hidden',
+          boxShadow:'0 4px 12px rgba(0,0,0,.5),0 16px 48px rgba(0,0,0,.4),0 32px 80px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.04)',
+          position:'relative',
+        }}>
+          {/* Barrido plateado — recorre el modal cada 3 s */}
+          <div className="ip-silver-sweep"/>
+          {/* Línea superior dorada con realce plateado pulsante */}
+          <div className="ip-silver-edge" style={{position:'absolute',top:0,left:0,right:0,height:3,zIndex:7,pointerEvents:'none',
+            background:'linear-gradient(90deg,#C9A84C,rgba(226,232,240,.85),rgba(201,168,76,.3),transparent)',borderRadius:'20px 20px 0 0'}}/>
+
+          {/* Header del modal */}
+          <div style={{padding:'28px 28px 0',position:'relative'}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
+              <div>
+                <p style={{margin:0,fontSize:11,color:'#C9A84C',fontWeight:600,fontFamily:'Century Gothic,sans-serif',
+                  letterSpacing:'.5px',textTransform:'uppercase'}}>Resumen de actividad</p>
+                <h2 style={{margin:'6px 0 0',fontSize:20,fontWeight:800,color:'#fff',fontFamily:'Century Gothic,sans-serif'}}>
+                  {saludo}, {nombre}
+                </h2>
+                <p style={{margin:'4px 0 0',fontSize:12,color:'#556b84',fontFamily:'Century Gothic,sans-serif',textTransform:'capitalize'}}>{fechaHoy}</p>
+              </div>
+              <button onClick={()=>setShowLoginAlert(false)}
+                style={{background:'rgba(15,25,35,.8)',border:'1px solid rgba(36,52,71,.8)',borderRadius:10,
+                  color:'#556b84',cursor:'pointer',padding:8,transition:'all .2s',flexShrink:0}}
+                onMouseOver={e=>{e.currentTarget.style.color='#C9A84C';e.currentTarget.style.borderColor='rgba(201,168,76,.3)';}}
+                onMouseOut={e=>{e.currentTarget.style.color='#556b84';e.currentTarget.style.borderColor='rgba(36,52,71,.8)';}}>
+                <Ico n="close" s={16}/>
+              </button>
+            </div>
+
+            {/* KPI resumen */}
+            <div style={{display:'flex',gap:10,marginTop:18,marginBottom:6}}>
+              {vencidas.length>0&&<div className="ip-silver-card" style={{
+                flex:1,padding:'14px 16px',borderRadius:12,position:'relative',overflow:'hidden',
+                background:'linear-gradient(165deg,#1a2e47 0%,#132238 35%,#0e1a2b 100%)',
+                boxShadow:'0 1px 2px rgba(0,0,0,.5),0 4px 8px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.06)',
+              }}>
+                <div style={{position:'absolute',inset:0,borderRadius:12,padding:'1.2px',
+                  background:'linear-gradient(185deg,rgba(248,113,113,.5) 0%,rgba(248,113,113,.05) 50%,rgba(248,113,113,.3) 100%)',
+                  WebkitMask:'linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0)',WebkitMaskComposite:'xor',maskComposite:'exclude',pointerEvents:'none'}}/>
+                <p style={{margin:0,fontSize:28,fontWeight:800,color:'#f87171',fontFamily:'Century Gothic,sans-serif',lineHeight:1,
+                  textShadow:'0 0 20px rgba(248,113,113,.2)'}}>{vencidas.length}</p>
+                <p style={{margin:'4px 0 0',fontSize:10,color:'#94a3b8',fontFamily:'Century Gothic,sans-serif',fontWeight:600,textTransform:'uppercase',letterSpacing:'.4px'}}>Vencida{vencidas.length!==1?'s':''}</p>
+              </div>}
+              {pendientes.length>0&&<div className="ip-silver-card" style={{
+                flex:1,padding:'14px 16px',borderRadius:12,position:'relative',overflow:'hidden',
+                background:'linear-gradient(165deg,#1a2e47 0%,#132238 35%,#0e1a2b 100%)',
+                boxShadow:'0 1px 2px rgba(0,0,0,.5),0 4px 8px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.06)',
+              }}>
+                <div style={{position:'absolute',inset:0,borderRadius:12,padding:'1.2px',
+                  background:'linear-gradient(185deg,rgba(96,165,250,.5) 0%,rgba(96,165,250,.05) 50%,rgba(96,165,250,.3) 100%)',
+                  WebkitMask:'linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0)',WebkitMaskComposite:'xor',maskComposite:'exclude',pointerEvents:'none'}}/>
+                <p style={{margin:0,fontSize:28,fontWeight:800,color:'#60a5fa',fontFamily:'Century Gothic,sans-serif',lineHeight:1,
+                  textShadow:'0 0 20px rgba(96,165,250,.2)'}}>{pendientes.length}</p>
+                <p style={{margin:'4px 0 0',fontSize:10,color:'#94a3b8',fontFamily:'Century Gothic,sans-serif',fontWeight:600,textTransform:'uppercase',letterSpacing:'.4px'}}>Pendiente{pendientes.length!==1?'s':''}</p>
+              </div>}
+            </div>
+          </div>
+
+          {/* Listados */}
+          <div style={{padding:'16px 28px 6px',maxHeight:'48vh',overflowY:'auto'}}>
+            {vencidas.length>0&&<div style={{marginBottom:16}}>
+              <p style={{fontSize:11,fontWeight:700,color:'#f87171',textTransform:'uppercase',letterSpacing:'.5px',
+                margin:'0 0 10px',display:'flex',alignItems:'center',gap:7,fontFamily:'Century Gothic,sans-serif'}}>
+                <Ico n="clock" s={12} c="#f87171"/> Tareas Vencidas
+                <span style={{marginLeft:'auto',fontSize:9,fontWeight:700,color:'#f87171',background:'rgba(248,113,113,.1)',
+                  border:'1px solid rgba(248,113,113,.2)',borderRadius:99,padding:'2px 8px'}}>{vencidas.length}</span>
+              </p>
+              {vencidas.slice(0,8).map(t=><TaskItem key={t.id} t={t} isVencida={true}/>)}
+              {vencidas.length>8&&<p style={{fontSize:10,color:'#f87171',textAlign:'center',margin:'8px 0 0',fontWeight:700,fontFamily:'Century Gothic,sans-serif'}}>
+                +{vencidas.length-8} tarea{vencidas.length-8!==1?'s':''} más</p>}
+            </div>}
+            {pendientes.length>0&&<div style={{marginBottom:8}}>
+              <p style={{fontSize:11,fontWeight:700,color:'#60a5fa',textTransform:'uppercase',letterSpacing:'.5px',
+                margin:'0 0 10px',display:'flex',alignItems:'center',gap:7,fontFamily:'Century Gothic,sans-serif'}}>
+                <Ico n="tasks" s={12} c="#60a5fa"/> Tareas Pendientes
+                <span style={{marginLeft:'auto',fontSize:9,fontWeight:700,color:'#60a5fa',background:'rgba(96,165,250,.1)',
+                  border:'1px solid rgba(96,165,250,.2)',borderRadius:99,padding:'2px 8px'}}>{pendientes.length}</span>
+              </p>
+              {pendientes.slice(0,8).map(t=><TaskItem key={t.id} t={t} isVencida={false}/>)}
+              {pendientes.length>8&&<p style={{fontSize:10,color:'#60a5fa',textAlign:'center',margin:'8px 0 0',fontWeight:700,fontFamily:'Century Gothic,sans-serif'}}>
+                +{pendientes.length-8} tarea{pendientes.length-8!==1?'s':''} más</p>}
+            </div>}
+          </div>
+
+          {/* Footer */}
+          <div style={{padding:'14px 28px 22px',borderTop:'1px solid rgba(36,52,71,.5)',
+            display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
+            <p style={{margin:0,fontSize:11,color:'#475569',fontFamily:'Century Gothic,sans-serif'}}>
+              {totalItems} tarea{totalItems!==1?'s':''} requieren atención
+            </p>
+            <button onClick={()=>setShowLoginAlert(false)}
+              style={{
+                display:'flex',alignItems:'center',gap:8,padding:'10px 24px',borderRadius:12,border:'none',cursor:'pointer',
+                fontWeight:700,fontSize:13,fontFamily:'Century Gothic,sans-serif',letterSpacing:'.3px',
+                background:'linear-gradient(135deg,#1E3A5F 0%,#234a75 50%,#1E3A5F 100%)',color:'#fff',
+                boxShadow:'0 2px 8px rgba(30,58,95,.4),0 8px 24px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.08)',
+                transition:'all .25s ease',position:'relative',overflow:'hidden',
+              }}
+              onMouseOver={e=>{e.currentTarget.style.transform='translateY(-1px)';e.currentTarget.style.boxShadow='0 4px 16px rgba(30,58,95,.5),0 12px 32px rgba(0,0,0,.35),0 0 20px rgba(201,168,76,.08)';}}
+              onMouseOut={e=>{e.currentTarget.style.transform='translateY(0)';e.currentTarget.style.boxShadow='0 2px 8px rgba(30,58,95,.4),0 8px 24px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.08)';}}>
+              <Ico n="check" s={14}/> Entendido
+            </button>
+          </div>
+        </div>
+      </div>;
+    })()}
+
     <div style={{position:'fixed',top:16,right:16,zIndex:2000,display:'flex',flexDirection:'column',gap:8}}>
       {toasts.map(t=><Toast key={t.id} msg={t.msg} type={t.type} onClose={()=>setToasts(p=>p.filter(x=>x.id!==t.id))}/>)}
     </div>
