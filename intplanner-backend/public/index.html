@@ -791,24 +791,6 @@ textarea.inp{resize:vertical;min-height:80px}
   @media (prefers-reduced-motion:reduce){
     .ip-silver-sweep,.ip-silver-card,.ip-silver-edge{animation:none}
   }
-  /* ── Modal post-login — adaptación a pantalla de móvil ── */
-  .ip-lm-overlay{
-    padding:16px;
-    padding-top:max(16px,env(safe-area-inset-top));
-    padding-bottom:max(16px,env(safe-area-inset-bottom));
-  }
-  .ip-lm-card{display:flex;flex-direction:column}
-  .ip-lm-list{flex:1 1 auto;min-height:0;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
-  @media(max-width:640px){
-    .ip-lm-overlay{padding:10px;
-      padding-top:max(10px,env(safe-area-inset-top));
-      padding-bottom:max(10px,env(safe-area-inset-bottom));}
-    .ip-lm-card{max-height:93vh!important;border-radius:16px!important}
-    .ip-lm-head{padding:20px 18px 0!important}
-    .ip-lm-list{padding:12px 18px 4px!important;max-height:none!important}
-    .ip-lm-foot{padding:12px 18px 16px!important}
-    .ip-lm-kpi{padding:11px 13px!important}
-  }
   .notif-panel-head{
     padding:16px 18px;border-bottom:1px solid rgba(36,52,71,.5);
     display:flex;align-items:center;justify-content:space-between;
@@ -1517,7 +1499,8 @@ const PERM_NIVELES = [
 const PERM_MODS = [
   'dashboard','tareas','clientes','equipo',
   'calendario','visita_cliente','analytics','alertas','chat','cobros',
-  'anticipos','whatsapp','exportar'
+  'anticipos','whatsapp','exportar',
+  'requerimientos' // PORTAL v14
 ];
 
 // Permisos por defecto según rol — aplicados automáticamente al cambiar rol en Config > Usuarios
@@ -2397,6 +2380,7 @@ const AuthSvc = {
   // _shouldBeAdmin respeta este bloqueo y NO eleva el rol si existe un cambio explícito.
   _shouldBeAdmin: (sess) => {
     if(!sess) return false;
+    if(sess.rol === 'cliente') return false; // PORTAL v14: un acceso de cliente nunca se eleva
     if(sess.rol === 'administrador') return true;
     // FIX INC-3: Respetar cambio de rol explícito guardado por un administrador
     try {
@@ -2864,6 +2848,8 @@ const Login = ({onLogin}) => {
   const [qrLoading,setQrLoading]=useState(false);
   // A1: Toggle visibilidad contraseña
   const [showPass,setShowPass]=useState(false);
+  // PORTAL v14: selector visual de tipo de acceso (no altera la autenticación: el rol lo define el perfil)
+  const [modoAcceso,setModoAcceso]=useState('equipo');
   // A2: "Mantener sesión iniciada" — persiste en localStorage para sobrevivir cierre del navegador
   const [keepSession,setKeepSession]=useState(()=>{ try{ return localStorage.getItem('ip_keep_session')==='1'; }catch(_){ return false; } });
 
@@ -3184,10 +3170,24 @@ const Login = ({onLogin}) => {
           {5 - intentos} intento{5-intentos!==1?'s':''} restante{5-intentos!==1?'s':''} antes del bloqueo temporal
         </div>
       )}
+      {/* PORTAL v14: tipo de acceso */}
+      <div role="tablist" aria-label="Tipo de acceso" style={{display:'flex',gap:4,padding:4,marginBottom:16,background:'rgba(15,25,35,.6)',border:'1px solid #243447',borderRadius:10}}>
+        {[{id:'equipo',l:'Equipo Integra'},{id:'cliente',l:'Portal de clientes'}].map(o=>(
+          <button key={o.id} type="button" role="tab" aria-selected={modoAcceso===o.id} onClick={()=>setModoAcceso(o.id)}
+            style={{flex:1,height:34,borderRadius:7,border:modoAcceso===o.id?'1px solid rgba(201,168,76,.45)':'1px solid transparent',
+              background:modoAcceso===o.id?'#1E3A5F':'transparent',color:modoAcceso===o.id?'#fff':'#64748b',
+              fontSize:12,fontWeight:modoAcceso===o.id?700:500,cursor:'pointer',fontFamily:'Century Gothic,sans-serif',transition:'all .2s'}}>
+            {o.l}
+          </button>
+        ))}
+      </div>
+      {modoAcceso==='cliente'&&<p style={{fontSize:11.5,color:'#94a3b8',margin:'-6px 0 14px',lineHeight:1.5,textAlign:'center',fontFamily:'Century Gothic,sans-serif'}}>
+        Ingrese con el usuario y la contraseña que le entregó Integra Consultores.
+      </p>}
       <form onSubmit={submit} aria-label="Formulario de inicio de sesión">
         <div style={{marginBottom:16}}>
-          <label htmlFor="ip-email" style={{display:'block',fontSize:10.5,fontWeight:600,color:'#4d6480',marginBottom:7,textTransform:'uppercase',letterSpacing:'.5px',fontFamily:'Century Gothic,sans-serif'}}>Correo Electrónico</label>
-          <input id="ip-email" className="inp" type="email" placeholder="usuario@empresa.com" value={email} onChange={e=>setEmail(e.target.value)} required autoComplete="email" aria-required="true" disabled={!!bloqueadoHasta}/>
+          <label htmlFor="ip-email" style={{display:'block',fontSize:10.5,fontWeight:600,color:'#4d6480',marginBottom:7,textTransform:'uppercase',letterSpacing:'.5px',fontFamily:'Century Gothic,sans-serif'}}>{modoAcceso==='cliente'?'Usuario':'Correo Electrónico'}</label>
+          <input id="ip-email" className="inp" type="email" placeholder={modoAcceso==='cliente'?'contacto@suempresa.com':'usuario@empresa.com'} value={email} onChange={e=>setEmail(e.target.value)} required autoComplete="email" aria-required="true" disabled={!!bloqueadoHasta}/>
         </div>
         <div style={{marginBottom:16}}>
           <label htmlFor="ip-pass" style={{display:'block',fontSize:10.5,fontWeight:600,color:'#4d6480',marginBottom:7,textTransform:'uppercase',letterSpacing:'.5px',fontFamily:'Century Gothic,sans-serif'}}>Contraseña</label>
@@ -3245,6 +3245,7 @@ const MENU = [
   {id:'dashboard',label:'Dashboard',ico:'dash'},
   {id:'equipo',label:'Equipo',ico:'team'},
   {id:'tareas',label:'Tareas',ico:'tasks'},
+  {id:'requerimientos',label:'Requerimientos',ico:'flag'}, // PORTAL v14
   {id:'alertas',label:'Alertas',ico:'bell'},
   {id:'clientes',label:'Clientes',ico:'clients'},
   {id:'calendario',label:'Calendario',ico:'cal'},
@@ -3265,8 +3266,13 @@ const Sidebar = ({active,onNav,col,onToggle,user,cfg,permisos,mobOpen,onMobClose
                   (cfg?.adminEmail && user?.email &&
                    user.email.toLowerCase().trim() === cfg.adminEmail.toLowerCase().trim());
 
+  // PORTAL v14: requerimientos nuevos (estado 'recibido') para el indicador rojo del menú.
+  const _reqCtx = useApp() || {};
+  const reqNuevos = (_reqCtx.requerimientos||[]).filter(r=>r&&r.estado==='recibido').length;
   const menu = MENU.filter(m => {
     if(m.id === 'config') return esAdmin;
+    // PORTAL v14: visible para todo el equipo salvo que el admin lo deshabilite explícitamente
+    if(m.id === 'requerimientos') return esAdmin || permisos?.requerimientos === undefined || canView(permisos, m.id);
     return esAdmin || canView(permisos, m.id);
   });
   return <aside className={clx('sidebar',col&&'col',mobOpen&&'mob-open')}>
@@ -3286,9 +3292,12 @@ const Sidebar = ({active,onNav,col,onToggle,user,cfg,permisos,mobOpen,onMobClose
     </div>
     <nav style={{flex:1,minHeight:0,overflowY:'auto',overflowX:'hidden',padding:'8px',display:'flex',flexDirection:'column',gap:2}}>
       {menu.map(m=>(
-        <button key={m.id} className={clx('si',active===m.id&&'active')} onClick={()=>{onNav(m.id);onMobClose&&onMobClose();}} title={col?m.label:undefined}>
+        <button key={m.id} className={clx('si',active===m.id&&'active')} onClick={()=>{onNav(m.id);onMobClose&&onMobClose();}} title={col?m.label:undefined} style={m.id==='requerimientos'?{position:'relative'}:undefined}>
           <Ico n={m.ico} s={17}/>
           <span className="si-label">{m.label}</span>
+          {m.id==='requerimientos'&&reqNuevos>0&&<span aria-label={`${reqNuevos} requerimientos nuevos`} style={col
+            ?{position:'absolute',top:4,right:6,width:9,height:9,borderRadius:'50%',background:'#DC2626',boxShadow:'0 0 0 2px #162030'}
+            :{marginLeft:'auto',minWidth:20,height:20,padding:'0 6px',borderRadius:99,background:'#DC2626',color:'#fff',fontSize:11,fontWeight:700,display:'inline-flex',alignItems:'center',justifyContent:'center'}}>{col?null:reqNuevos}</span>}
         </button>
       ))}
     </nav>
@@ -3495,7 +3504,7 @@ const Header = ({title,user,onLogout,backup,onMobOpen}) => {
   );
 };
 
-const TITLES = {dashboard:'Dashboard',tareas:'Gestión de Tareas',clientes:'Clientes',equipo:'Equipo',calendario:'Calendario',visita_cliente:'Visita Cliente',analytics:'Analytics',alertas:'Alertas',chat:'Chat',cobros:'Facturación',anticipos:'Anticipos',whatsapp:'WhatsApp Center',exportar:'Informes',config:'Configuración'};
+const TITLES = {dashboard:'Dashboard',tareas:'Gestión de Tareas',clientes:'Clientes',equipo:'Equipo',calendario:'Calendario',visita_cliente:'Visita Cliente',analytics:'Analytics',alertas:'Alertas',chat:'Chat',cobros:'Facturación',anticipos:'Anticipos',whatsapp:'WhatsApp Center',exportar:'Informes',config:'Configuración',requerimientos:'Requerimientos de Clientes'};
 
 // ── DASHBOARD ─────────────────────────────────────────────────
 // Catálogo completo de KPIs disponibles para el Dashboard
@@ -14837,7 +14846,7 @@ const Config = () => {
 
   useEffect(()=>()=>{ if(qrTimerRef.current) clearInterval(qrTimerRef.current); },[]);
 
-  const TABS=[{id:'empresa',l:'Empresa'},{id:'apariencia',l:'Apariencia'},{id:'usuarios',l:'Usuarios'},{id:'servicios',l:'Servicios'},{id:'cargos',l:'Cargos'},{id:'personalizar',l:'🎨 Personalizar'},{id:'notificaciones',l:'🔔 Notificaciones'},{id:'backup',l:'Backup & QR'},{id:'dashboard',l:'🎛️ Dashboard'},{id:'diagnostico',l:'🔬 Diagnóstico V13'}];
+  const TABS=[{id:'empresa',l:'Empresa'},{id:'apariencia',l:'Apariencia'},{id:'usuarios',l:'Usuarios'},{id:'accesos_clientes',l:'🏢 Accesos de clientes'},{id:'servicios',l:'Servicios'},{id:'cargos',l:'Cargos'},{id:'personalizar',l:'🎨 Personalizar'},{id:'notificaciones',l:'🔔 Notificaciones'},{id:'backup',l:'Backup & QR'},{id:'dashboard',l:'🎛️ Dashboard'},{id:'diagnostico',l:'🔬 Diagnóstico V13'}];
 
   return <div className="fade">
     <div className="card-p" style={{marginBottom:12,display:'flex',alignItems:'center',gap:12}}>
@@ -15059,9 +15068,9 @@ const Config = () => {
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12,flexWrap:'wrap'}}>
         {isAdmin&&<button className="btn btn-p btn-sm" onClick={()=>{setFormUser({id:null,nombre:'',email:'',rol:'consultor',activo:true,permisos:ROL_PERMISOS['consultor']||{}});setOpenUser(true);}}><Ico n="plus" s={13}/>Nuevo Usuario</button>}
         <span style={{fontSize:11,color:'#64748b',marginLeft:4}}>
-          {usuarios.filter(u=>u.activo!==false).length} activos
-          {usuarios.filter(u=>u.activo===false).length>0&&
-            <span style={{color:'#f87171',marginLeft:6}}>· {usuarios.filter(u=>u.activo===false).length} inactivos</span>}
+          {usuarios.filter(u=>u.rol!=='cliente').filter(u=>u.activo!==false).length} activos
+          {usuarios.filter(u=>u.rol!=='cliente').filter(u=>u.activo===false).length>0&&
+            <span style={{color:'#f87171',marginLeft:6}}>· {usuarios.filter(u=>u.rol!=='cliente').filter(u=>u.activo===false).length} inactivos</span>}
         </span>
         {/* Badge V13 */}
         <span style={{marginLeft:'auto',fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:99,
@@ -15073,8 +15082,8 @@ const Config = () => {
         <table className="tbl">
           <thead><tr>{['Nombre','Email','Rol','Estado','Acciones'].map(h=><th key={h}>{h}</th>)}</tr></thead>
           <tbody>
-            {usuarios.length===0&&<tr><td colSpan={5} style={{textAlign:'center',color:'#475569',padding:32}}>Sin usuarios registrados. El admin es el usuario raíz.</td></tr>}
-            {usuarios.map(u=>{
+            {usuarios.filter(u=>u.rol!=='cliente').length===0&&<tr><td colSpan={5} style={{textAlign:'center',color:'#475569',padding:32}}>Sin usuarios registrados. El admin es el usuario raíz.</td></tr>}
+            {usuarios.filter(u=>u.rol!=='cliente').map(u=>{ /* PORTAL v14: accesos de clientes se gestionan en su pestaña */
               const inactivo = u.activo===false;
               return <tr key={u.id} style={inactivo?{opacity:.55,background:'rgba(153,27,27,.04)'}:{}}>
                 <td>
@@ -15404,6 +15413,7 @@ const Config = () => {
       {cargos.length===0&&<p style={{color:'#475569',fontSize:13}}>Sin cargos. Agregue los cargos de su organización.</p>}
     </div>}
 
+    {tab==='accesos_clientes'&&<AccesosClientes toast={toast} isAdmin={isAdmin} user={user}/>}
     {tab==='notificaciones'&&<NotifConfig/>}
 
     {tab==='personalizar'&&<PersonalizarTab toast={toast}/>}
@@ -15674,12 +15684,1972 @@ const Config = () => {
   </div>;
 };
 
+// ══════════════════════════════════════════════════════════════════════
+// PORTAL DE CLIENTES + REQUERIMIENTOS — v15
+// v15: tipos de solicitud (requerimiento · observación de tarea · solicitud de agenda),
+// archivo mensual automático, logo de empresa (colección 'portal_empresas').
+// Módulo aditivo. Rol nuevo 'cliente' (usuarios.rol), colección nueva
+// 'requerimientos'. Al tramitar se reutiliza el mismo esquema de Tareas
+// (tarea + alerta vinculada 'alrt_<id>' + evento de calendario).
+// El estado que ve el cliente se deriva de la tarea vinculada.
+// ══════════════════════════════════════════════════════════════════════
+const REQ_AREAS = [
+  {id:'administracion_personal', label:'Administración de Personal'},
+  {id:'gestion_sst',             label:'Gestión SST'},
+  {id:'consultoria_juridica',    label:'Consultoría Jurídica'},
+  {id:'gestion_operativa',       label:'Gestión Operativa'},
+  {id:'gestion_calidad',         label:'Gestión de Calidad'},
+  {id:'ambiental',               label:'Ambiental'},
+  {id:'i_d',                     label:'I+D'},
+];
+const REQ_PRIO = [
+  {id:'baja',label:'Baja'},{id:'media',label:'Media'},{id:'alta',label:'Alta'},{id:'urgente',label:'Urgente'},
+];
+const REQ_MAX_ADJ = 3;
+const REQ_MAX_KB  = 1536; // 1,5 MB por archivo: el adjunto viaja en base64 y se cachea en localStorage
+const reqAreaLabel = id => REQ_AREAS.find(a=>a.id===id)?.label || 'Sin clasificar';
+const reqPrioLabel = id => REQ_PRIO.find(p=>p.id===id)?.label || 'Media';
+
+// Estado visible: antes de tramitar lo dicta el requerimiento; después, la tarea vinculada
+// Tipos de solicitud que llegan desde el portal
+const REQ_TIPOS = {
+  requerimiento:{l:'Requerimiento', pref:'REQ', ico:'flag'},
+  observacion:  {l:'Observación',   pref:'OBS', ico:'chat'},
+  agenda:       {l:'Solicitud de agenda', pref:'AGD', ico:'cal'},
+};
+const reqTipo = r => (r && REQ_TIPOS[r.tipo]) ? r.tipo : 'requerimiento';
+const reqEstado = (r, tareas=[]) => {
+  if(!r) return {key:'recibido',label:'Recibido',tone:'red',paso:0};
+  const tipo = reqTipo(r);
+  if(r.estado==='no_procede')      return {key:'no_procede',label:'No procede',tone:'gray',paso:-1};
+  if(r.estado==='info_solicitada') return {key:'info',label:'Información solicitada',tone:'amber',paso:0};
+  if(tipo==='observacion') return r.estado==='respondida'
+    ? {key:'respondida',label:'Respondida',tone:'green',paso:1}
+    : {key:'recibido',label:'Por responder',tone:'red',paso:0};
+  if(tipo==='agenda') return r.estado==='agendado'
+    ? {key:'agendado',label:'Agendado',tone:'green',paso:1}
+    : {key:'recibido',label:'Pendiente de agendar',tone:'red',paso:0};
+  if(r.estado==='recibido')        return {key:'recibido',label:'Recibido',tone:'red',paso:0};
+  const t = r.tareaId ? tareas.find(x=>x.id===r.tareaId) : null;
+  if(!t)                        return {key:'tramite',label:'En trámite',tone:'gold',paso:1};
+  if(t.estado==='completada')   return {key:'completado',label:'Completado',tone:'green',paso:3};
+  if(t.estado==='cancelada')    return {key:'cancelado',label:'Cancelado',tone:'gray',paso:-1};
+  if(t.estado==='pendiente')    return {key:'tramite',label:'En trámite',tone:'gold',paso:1};
+  return {key:'curso',label:'En curso',tone:'blue',paso:2};
+};
+const REQ_TONE_DARK = {
+  red:{bg:'rgba(220,38,38,.18)',fg:'#fca5a5'}, amber:{bg:'rgba(245,158,11,.16)',fg:'#fcd34d'},
+  gold:{bg:'rgba(201,168,76,.16)',fg:'#e8c96a'}, blue:{bg:'rgba(96,165,250,.16)',fg:'#93c5fd'},
+  green:{bg:'rgba(74,222,128,.14)',fg:'#86efac'}, gray:{bg:'rgba(148,163,184,.14)',fg:'#94a3b8'},
+};
+const REQ_TONE_LIGHT = {
+  red:{bg:'#FDE2E2',fg:'#B42318'}, amber:{bg:'#FEF0C7',fg:'#93370D'},
+  gold:{bg:'#FBF3E0',fg:'#8A6A1F'}, blue:{bg:'#E8EEF7',fg:'#1E3A5F'},
+  green:{bg:'#E6F4EA',fg:'#15703A'}, gray:{bg:'#EEF1F5',fg:'#5B6B80'},
+};
+const reqFechaHora = iso => {
+  if(!iso) return '—';
+  try { return new Date(iso).toLocaleString('es-CO',{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'}); }
+  catch(_){ return '—'; }
+};
+const reqHace = iso => {
+  if(!iso) return '';
+  const m = Math.max(0, Math.round((Date.now()-new Date(iso).getTime())/60000));
+  if(m<1) return 'hace un momento';
+  if(m<60) return 'hace '+m+' min';
+  const h = Math.round(m/60);
+  if(h<24) return 'hace '+h+' h';
+  const d = Math.round(h/24);
+  return 'hace '+d+' día'+(d!==1?'s':'');
+};
+// Etiqueta que ve el cliente (sin jerga interna)
+const reqEstadoCliente = (r, tareas=[]) => {
+  const e = reqEstado(r, tareas), tipo = reqTipo(r);
+  if(e.key==='info') return {...e, label:'Requiere su respuesta'};
+  if(e.key!=='recibido') return e;
+  if(tipo==='agenda') return {...e, label:'Pendiente', tone:'amber'};
+  if(tipo==='observacion') return {...e, label:'Enviada', tone:'gold'};
+  return {...e, label:'Recibido', tone:'gold'};
+};
+const REQ_ABIERTOS = ['recibido','info','tramite','curso'];
+const reqEventoDe = (r, tareas=[]) => r?.eventoId ? tareas.find(t=>t.id===r.eventoId) || null : null;
+
+// ── ARCHIVO MENSUAL AUTOMÁTICO ──────────────────────────────────────
+// Nada se borra: cada registro cerrado se asigna al mes en que se cerró.
+// La vista "mes actual" muestra lo abierto (venga de donde venga) + lo cerrado
+// este mes; lo cerrado en meses anteriores queda en su mes del histórico.
+const ARCH_MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const archMesActual = () => { const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); };
+const archMesLabel = ym => { const [y,m]=String(ym||'').split('-'); return (ARCH_MESES[(+m||1)-1]||'')+' '+(y||''); };
+const archMes7 = v => { const s=String(v||''); return /^\d{4}-\d{2}/.test(s) ? s.slice(0,7) : null; };
+// Mes de cierre de una tarea (null = sigue abierta)
+const archMesTarea = t => {
+  if(t.estado==='completada') return archMes7(t.fechaCumplimiento)||archMes7(t.completadoEn)||archMes7(t.updatedAt)||archMes7(t._modEn)||archMes7(t.fechaVen);
+  if(t.estado==='cancelada')  return archMes7(t.updatedAt)||archMes7(t._modEn)||archMes7(t.fechaVen);
+  return null;
+};
+// Mes de cierre de una solicitud (null = sigue abierta)
+const archMesReq = (r, tareas=[]) => {
+  const e = reqEstado(r, tareas);
+  if(REQ_ABIERTOS.includes(e.key)) return null;
+  if(e.key==='agendado'){ const ev=reqEventoDe(r,tareas); return archMes7(ev?.fechaVen)||archMes7(r.fechaAgendada)||archMes7(r.agendadoEn); }
+  if(e.key==='completado'){ const t=r.tareaId?tareas.find(x=>x.id===r.tareaId):null; return archMes7(t?.fechaCumplimiento)||archMes7(t?.updatedAt)||archMes7(r._modEn)||archMes7(r.creadoEn); }
+  if(e.key==='respondida') return archMes7(r.respondidoEn)||archMes7(r._modEn)||archMes7(r.creadoEn);
+  return archMes7(r.cerradoEn)||archMes7(r._modEn)||archMes7(r.creadoEn);
+};
+// periodo: 'actual' | 'todo' | 'YYYY-MM'
+const archEnPeriodo = (mesCierre, periodo) => {
+  if(periodo==='todo') return true;
+  if(periodo==='actual') return !mesCierre || mesCierre>=archMesActual();
+  return mesCierre===periodo;
+};
+const archMesesDisponibles = meses => [...new Set(meses.filter(m=>m && m<archMesActual()))].sort().reverse();
+
+// ── LOGO DE EMPRESA PARA EL PORTAL ──────────────────────────────────
+// Se optimiza a 240 px (contain) para que viaje al servidor sin exceder límites.
+const PORTAL_LOGO_PX = 240;
+const portalProcesarLogo = (src) => new Promise((resolve, reject) => {
+  const img = new Image();
+  img.onerror = () => reject(new Error('No se pudo leer la imagen'));
+  img.onload = () => {
+    try {
+      const sc = Math.min(1, PORTAL_LOGO_PX/Math.max(img.width||1, img.height||1));
+      const w = Math.max(1, Math.round((img.width||PORTAL_LOGO_PX)*sc)), h = Math.max(1, Math.round((img.height||PORTAL_LOGO_PX)*sc));
+      const cv = document.createElement('canvas'); cv.width=w; cv.height=h;
+      const ctx = cv.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      let out = cv.toDataURL('image/png');
+      if(out.length > 80*1024){ // logo fotográfico: JPEG con fondo blanco
+        ctx.globalCompositeOperation='destination-over'; ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,w,h);
+        out = cv.toDataURL('image/jpeg', 0.88);
+      }
+      resolve(out);
+    } catch(e){ reject(e); }
+  };
+  img.src = src;
+});
+
+const ReqSvc = {
+  nextNumero: (lista=[], pref='REQ') => {
+    const max = lista.filter(r=>String(r.numero||'').startsWith(pref+'-'))
+      .reduce((m,r)=>Math.max(m, parseInt(String(r.numero||'').replace(/\D/g,''),10)||0), 0);
+    return pref+'-'+String(max+1).padStart(4,'0');
+  },
+  // Firma única por ingreso a la bandeja: cambia cuando el cliente responde una solicitud de información
+  firma: r => r.id+':'+(r.recibidoEn||r.creadoEn||''),
+  evento: (r, estado, texto, autor) => ({
+    ...r,
+    historial: [...(Array.isArray(r.historial)?r.historial:[]), {estado, texto:texto||'', autor:autor||'', ts:new Date().toISOString()}],
+  }),
+  leerArchivos: async (fileList, actuales=[], toast) => {
+    const TIPOS = ['image/jpeg','image/jpg','image/png','application/pdf'];
+    const libres = REQ_MAX_ADJ - actuales.length;
+    if(libres<=0){ toast&&toast('Máximo '+REQ_MAX_ADJ+' archivos por requerimiento','warning'); return actuales; }
+    const files = Array.from(fileList||[]).slice(0, libres);
+    const out = [];
+    for(const f of files){
+      if(!TIPOS.includes(f.type)){ toast&&toast('Solo se aceptan archivos JPG, PNG o PDF','error'); continue; }
+      if(f.size > REQ_MAX_KB*1024){ toast&&toast('"'+f.name+'" supera el límite de 1,5 MB','error'); continue; }
+      const data = await new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.onerror=rej; fr.readAsDataURL(f); });
+      out.push({data, nombre:f.name, tipo:f.type, kb:Math.round(f.size/1024)});
+    }
+    return [...actuales, ...out];
+  },
+  // Observación del cliente sobre una tarea: un solo hilo por tarea (trazabilidad completa)
+  observar: (reqsAll=[], user, tarea, texto) => {
+    const now = new Date().toISOString();
+    const prev = reqsAll.find(r=>reqTipo(r)==='observacion' && r.tareaObservadaId===tarea.id && r.clienteId===user.clienteId);
+    let r = prev
+      ? {...prev, estado:'recibido', recibidoEn:now, ultimoMensajeCliente:texto}
+      : { id:uid(), tipo:'observacion', numero:ReqSvc.nextNumero(reqsAll,'OBS'),
+          clienteId:user.clienteId, clienteNombre:user.clienteNombre||'',
+          solicitanteId:user.id, solicitanteNombre:user.nombre||'', solicitanteEmail:user.email||'',
+          titulo:'Observación: '+(tarea.titulo||'tarea'), tareaObservadaId:tarea.id,
+          areaEspecialidad:tarea.areaEspecialidad||'', prioridad:'media', fechaRequerida:'',
+          desc:texto, adjuntos:[], estado:'recibido', creadoEn:now, recibidoEn:now, historial:[], ultimoMensajeCliente:texto };
+    return ReqSvc.evento(r, 'mensaje_cliente', texto, user.nombre||'Cliente');
+  },
+  // Sugerencia de responsable: afinidad por área (historial de tareas + cargo/especialidad), luego menor carga
+  sugerirResponsables: (req, equipo=[], tareas=[]) => {
+    const rIds = t => Array.isArray(t.responsablesIds)&&t.responsablesIds.length ? t.responsablesIds : (t.responsableId?[t.responsableId]:[]);
+    const label = reqAreaLabel(req?.areaEspecialidad).toLowerCase();
+    return equipo.filter(e=>e.activo!==false).map(e=>{
+      const mis = tareas.filter(t=>!t.esAlerta && rIds(t).includes(e.id));
+      const carga = mis.filter(t=>t.estado!=='completada'&&t.estado!=='cancelada').length;
+      const porHistorial = mis.filter(t=>req?.areaEspecialidad && t.areaEspecialidad===req.areaEspecialidad).length;
+      const porPerfil = ((e.especialidad||'')+' '+(e.cargo||'')).toLowerCase().split(/[^a-záéíóúñ+]+/i)
+        .filter(w=>w.length>=3 && label.includes(w)).length;
+      return {...e, carga, afinidad: porHistorial + porPerfil*3};
+    }).sort((a,b)=> b.afinidad-a.afinidad || a.carga-b.carga);
+  },
+};
+window.ReqSvc = ReqSvc;
+
+// Paso a paso compartido (equipo: dark · cliente: light)
+const ReqPasos = ({req, tareas, light}) => {
+  const est = reqEstado(req, tareas);
+  const t = req?.tareaId ? tareas.find(x=>x.id===req.tareaId) : null;
+  const c = light
+    ? {done:'#15803D', cur:'#1E3A5F', ring:'#DCE5F2', off:'#C7D0DC', txt:'#14233A', muted:'#5B6B80', offTxt:'#8796A8'}
+    : {done:'#4ade80', cur:'#C9A84C', ring:'rgba(201,168,76,.25)', off:'#334155', txt:'#e2e8f0', muted:'#94a3b8', offTxt:'#64748b'};
+  const tipo = reqTipo(req);
+  const ev = reqEventoDe(req, tareas);
+  const pasos = tipo==='observacion' ? [
+    {label:'Enviada',    fecha:reqFechaHora(req?.recibidoEn||req?.creadoEn)},
+    {label:'Respondida', fecha:req?.respondidoEn ? reqFechaHora(req.respondidoEn) : ''},
+  ] : tipo==='agenda' ? [
+    {label:'Solicitada', fecha:reqFechaHora(req?.creadoEn)},
+    {label:'Agendada',   fecha:(ev?.fechaVen||req?.fechaAgendada) ? fmt.date(ev?.fechaVen||req.fechaAgendada)+((ev?.horaInicio||req?.horaAgendada)?' · '+(ev?.horaInicio||req.horaAgendada):'') : ''},
+  ] : [
+    {label:'Recibido',   fecha:reqFechaHora(req?.creadoEn)},
+    {label:'En trámite', fecha:req?.tramitadoEn ? reqFechaHora(req.tramitadoEn) : ''},
+    {label:'En curso',   fecha:''},
+    {label:'Completado', fecha:t?.fechaCumplimiento ? fmt.date(t.fechaCumplimiento) : ''},
+  ];
+  const ult = pasos.length-1;
+  return <ol style={{listStyle:'none',margin:0,padding:0,display:'flex',flexDirection:'column',gap:14}}>
+    {pasos.map((p,i)=>{
+      const hecho = est.paso>i || (est.paso===ult && i===ult);
+      const actual = est.paso===i && est.paso!==ult;
+      return <li key={p.label} style={{display:'flex',gap:12,alignItems:'flex-start'}}>
+        <span aria-hidden="true" style={{width:12,height:12,marginTop:4,borderRadius:'50%',flexShrink:0,boxSizing:'border-box',
+          background: hecho?c.done : actual?c.cur : 'transparent',
+          border: hecho||actual ? 'none' : `2px solid ${c.off}`,
+          boxShadow: actual?`0 0 0 4px ${c.ring}`:'none'}}/>
+        <div>
+          <div style={{fontWeight:700,fontSize:14,color:hecho||actual?c.txt:c.offTxt}}>{p.label}</div>
+          {p.fecha&&(hecho||actual)&&<div style={{fontSize:13,color:c.muted}}>{p.fecha}</div>}
+        </div>
+      </li>;
+    })}
+  </ol>;
+};
+
+// ── AVISO ROJO (equipo) — se abre al ingresar y cuando llega un requerimiento nuevo ──
+const ReqAlertaModal = ({items, onTramitar, onVerTodos, onSnooze, onClose}) => (
+  <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.78)',backdropFilter:'blur(6px)',zIndex:9600,
+    display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+    <div role="dialog" aria-modal="true" aria-labelledby="req-alerta-titulo" style={{width:'100%',maxWidth:620,maxHeight:'88vh',display:'flex',flexDirection:'column',
+      background:'#162030',border:'1px solid rgba(248,113,113,.55)',borderRadius:18,overflow:'hidden',
+      boxShadow:'0 0 0 6px rgba(220,38,38,.12), 0 32px 80px rgba(0,0,0,.6)',fontFamily:'DM Sans,sans-serif'}}>
+      <div style={{background:'#B91C1C',padding:'20px 24px',display:'flex',gap:16,alignItems:'center'}}>
+        <div style={{width:46,height:46,borderRadius:12,background:'rgba(255,255,255,.16)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round"><path d="M12 8v5M12 16.5v.5"/><path d="M10.3 3.9L2.4 18a2 2 0 001.7 3h15.8a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>
+        </div>
+        <div style={{flex:1,minWidth:0}}>
+          <h2 id="req-alerta-titulo" className="sy" style={{margin:0,fontSize:20,color:'#fff'}}>
+            {items.every(r=>reqTipo(r)==='requerimiento')
+              ? (items.length===1?'1 requerimiento nuevo por atender':`${items.length} requerimientos nuevos por atender`)
+              : (items.length===1?'1 solicitud nueva de cliente por atender':`${items.length} solicitudes nuevas de clientes por atender`)}
+          </h2>
+          <p style={{margin:'4px 0 0',color:'#fee2e2',fontSize:13}}>Enviadas por clientes desde el portal: requerimientos, observaciones y solicitudes de agenda.</p>
+        </div>
+        <button onClick={onClose} aria-label="Cerrar aviso" style={{background:'rgba(255,255,255,.12)',border:'none',borderRadius:8,color:'#fff',cursor:'pointer',width:36,height:36,display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <Ico n="close" s={16}/>
+        </button>
+      </div>
+      <div style={{padding:'16px 20px',display:'flex',flexDirection:'column',gap:10,overflowY:'auto'}}>
+        {items.slice(0,6).map((r,i)=>(
+          <div key={r.id} style={{border:`1px solid ${i===0?'rgba(248,113,113,.4)':'#243447'}`,background:i===0?'rgba(220,38,38,.07)':'#0f1923',
+            borderRadius:12,padding:14,display:'flex',gap:14,alignItems:'center',flexWrap:'wrap'}}>
+            <div style={{flex:'1 1 260px',minWidth:0,display:'flex',flexDirection:'column',gap:3}}>
+              <span style={{fontSize:12,color:'#fca5a5',fontWeight:600,display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+                <span style={{display:'inline-flex',alignItems:'center',gap:4,padding:'1px 7px',borderRadius:99,background:'rgba(255,255,255,.08)',color:'#fecaca',fontSize:10,textTransform:'uppercase',letterSpacing:'.4px'}}><Ico n={REQ_TIPOS[reqTipo(r)].ico} s={10}/>{REQ_TIPOS[reqTipo(r)].l}</span>
+                {r.numero} · {r.clienteNombre||'Cliente'} · {reqHace(r.recibidoEn||r.creadoEn)}{r.respuestaCliente&&r.estado==='recibido'&&reqTipo(r)!=='observacion'?' · respondió su solicitud':''}</span>
+              <span style={{fontSize:15,fontWeight:700,color:'#fff',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.titulo}</span>
+              <span style={{fontSize:12,color:'#94a3b8',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{reqTipo(r)==='observacion'
+                ? '“'+(r.ultimoMensajeCliente||r.desc||'')+'”'
+                : reqTipo(r)==='agenda'
+                  ? 'Propone '+(r.fechaPropuesta?fmt.date(r.fechaPropuesta):'fecha por definir')+(r.horaPropuesta?' · '+r.horaPropuesta:'')+' · '+(r.modalidad||'presencial')
+                  : reqAreaLabel(r.areaEspecialidad)+' · Prioridad '+reqPrioLabel(r.prioridad).toLowerCase()+(r.fechaRequerida?' · Lo necesita el '+fmt.date(r.fechaRequerida):'')}</span>
+            </div>
+            <button onClick={()=>onTramitar(r)} className="btn btn-g btn-sm" style={{height:38}}>{reqTipo(r)==='observacion'?'Responder':reqTipo(r)==='agenda'?'Agendar':'Tramitar'}</button>
+          </div>
+        ))}
+        {items.length>6&&<p style={{margin:0,fontSize:12,color:'#94a3b8',textAlign:'center'}}>Y {items.length-6} más en el módulo Requerimientos.</p>}
+      </div>
+      <div style={{padding:'14px 20px 18px',display:'flex',justifyContent:'space-between',gap:10,flexWrap:'wrap',borderTop:'1px solid #243447'}}>
+        <button onClick={onSnooze} className="btn btn-ghost btn-sm">Recordarme en 30 minutos</button>
+        <button onClick={onVerTodos} className="btn btn-sm" style={{background:'transparent',border:'1px solid rgba(201,168,76,.5)',color:'#C9A84C'}}>Ver todas las solicitudes</button>
+      </div>
+    </div>
+  </div>
+);
+
+// ── MÓDULO REQUERIMIENTOS (equipo Integra) ───────────────────────────
+const Requerimientos = () => {
+  const {requerimientos,setRequerimientos,tareas,setTareas,clientes,equipo,toast,user,reqFocus,setReqFocus} = useApp();
+  const [fil,setFil]   = useState('atender');
+  const [q,setQ]       = useState('');
+  const [verId,setVerId] = useState(null);
+  const [tram,setTram] = useState(null);   // formulario de tramitación
+  const [info,setInfo] = useState(null);   // {id, texto}
+  const [noProc,setNoProc] = useState(null); // {id, texto}
+  const [resp,setResp]   = useState(null);   // respuesta a observación {id, texto}
+  const [agd,setAgd]     = useState(null);   // formulario de agendamiento
+  const [filTipo,setFilTipo] = useState('todos');
+  const hoy = new Date().toISOString().split('T')[0];
+
+  const guardarReq = r => {
+    DB.set('requerimientos', r);
+    setRequerimientos(prev => prev.some(x=>x.id===r.id) ? prev.map(x=>x.id===r.id?r:x) : [r,...prev]);
+  };
+
+  const abrirTramitar = r => {
+    const sugeridos = ReqSvc.sugerirResponsables(r, equipo, tareas);
+    setVerId(null);
+    setTram({
+      reqId: r.id,
+      titulo: r.titulo||'',
+      area: r.areaEspecialidad||'',
+      prioridad: r.prioridad||'media',
+      fechaVen: r.fechaRequerida && r.fechaRequerida>=hoy ? r.fechaRequerida : '',
+      responsableId: sugeridos[0]?.id || '',
+      mensaje: '',
+    });
+  };
+
+  const abrirAgendar = r => {
+    setVerId(null);
+    const sug = ReqSvc.sugerirResponsables(r, equipo, tareas);
+    setAgd({
+      reqId: r.id,
+      subtipo: r.subtipo==='capacitacion' ? 'capacitacion' : 'reunion',
+      titulo: (r.titulo||'').replace(/^Solicitud de (reunión|capacitación):\s*/i,''),
+      fecha: r.fechaPropuesta && r.fechaPropuesta>=hoy ? r.fechaPropuesta : '',
+      horaInicio: r.horaPropuesta||'', horaFin:'',
+      modalidad: r.modalidad||'presencial', linkVirtual:'', lugar:'',
+      responsableId: sug[0]?.id||'', instructor:'', duracionH:'',
+      mensaje:'',
+    });
+  };
+  // Acción principal según el tipo de solicitud
+  const accionPrincipal = r => {
+    const tipo = reqTipo(r);
+    if(r.estado==='no_procede') return setVerId(r.id);
+    if(tipo==='observacion') return (setVerId(null), setResp({id:r.id, texto:''}));
+    if(tipo==='agenda') return r.estado==='agendado' ? setVerId(r.id) : abrirAgendar(r);
+    return r.tareaId ? setVerId(r.id) : abrirTramitar(r);
+  };
+
+  // Llegada desde el aviso rojo: abrir directamente la acción solicitada
+  useEffect(()=>{
+    if(!reqFocus) return;
+    const r = requerimientos.find(x=>x.id===reqFocus.id);
+    if(r){ if(reqFocus.accion==='tramitar') accionPrincipal(r); else setVerId(r.id); }
+    setReqFocus(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[reqFocus]);
+
+  const conteo = useMemo(()=>{
+    const c = {atender:0, info:0, proceso:0, cerrados:0, todos:requerimientos.length};
+    requerimientos.forEach(r=>{
+      const k = reqEstado(r,tareas).key;
+      if(k==='recibido') c.atender++;
+      else if(k==='info') c.info++;
+      else if(k==='tramite'||k==='curso') c.proceso++;
+      else c.cerrados++;
+    });
+    return c;
+  },[requerimientos,tareas]);
+
+  const lista = useMemo(()=>{
+    const s = q.trim().toLowerCase();
+    return [...requerimientos].filter(r=>{
+      const k = reqEstado(r,tareas).key;
+      if(filTipo!=='todos' && reqTipo(r)!==filTipo) return false;
+      if(fil==='atender'  && k!=='recibido') return false;
+      if(fil==='info'     && k!=='info') return false;
+      if(fil==='proceso'  && !['tramite','curso'].includes(k)) return false;
+      if(fil==='cerrados' && !['completado','no_procede','cancelado'].includes(k)) return false;
+      if(s && !((r.titulo||'')+' '+(r.numero||'')+' '+(r.clienteNombre||'')).toLowerCase().includes(s)) return false;
+      return true;
+    }).sort((a,b)=>String(b.recibidoEn||b.creadoEn||'').localeCompare(String(a.recibidoEn||a.creadoEn||'')));
+  },[requerimientos,tareas,fil,q,filTipo]);
+
+  // ── Tramitar: crea la tarea con el mismo esquema del módulo Tareas ──
+  const tramitar = () => {
+    const r = requerimientos.find(x=>x.id===tram?.reqId);
+    if(!r) return;
+    if(!tram.titulo.trim()) return toast('El título de la tarea es requerido','error');
+    if(!tram.responsableId) return toast('Seleccione el responsable','error');
+    if(!tram.fechaVen) return toast('Defina la fecha de vencimiento','error');
+    const now  = new Date().toISOString();
+    const resp = equipo.find(e=>e.id===tram.responsableId);
+    const tareaId = uid();
+    const tarea = {
+      id: tareaId,
+      titulo: tram.titulo.trim(),
+      clienteId: r.clienteId,
+      responsableId: tram.responsableId,
+      responsablesIds: [tram.responsableId],
+      equipoIntegra: false,
+      estado: 'pendiente',
+      prioridad: tram.prioridad,
+      fechaAsignada: hoy,
+      fechaVen: tram.fechaVen,
+      fechaEjecucion: '',
+      desc: (r.numero+' · Requerimiento del cliente desde el portal.\n'+(r.desc||'')).trim(),
+      areaEspecialidad: tram.area,
+      proyectoId: '',
+      actividadesRealizadas: '',
+      reporteInforme: '',
+      soporteCierre: [], showCierre: false,
+      compromisos: [], showCompromisos: false,
+      requerimientoId: r.id,
+      origen: 'portal_cliente',
+      creadoPor: user?.id, creadoEn: now, updatedAt: now,
+    };
+    const PRIO_TIPO = {urgente:'Urgente', alta:'Vencimiento', media:'Recordatorio', baja:'Recordatorio'};
+    const alerta = {
+      id: 'alrt_'+tareaId, titulo: tarea.titulo, tipo: PRIO_TIPO[tarea.prioridad]||'Recordatorio',
+      clienteId: tarea.clienteId, responsableId: tarea.responsableId, fechaVen: tarea.fechaVen,
+      desc: '↔ Tarea: '+r.numero, estado: 'pendiente', esAlerta: true, tareaVinculadaId: tareaId, auto: true,
+    };
+    DB.set('tareas', tarea);
+    DB.set('tareas', alerta);
+    setTareas(prev => [alerta, tarea, ...prev]);
+    window.dispatchEvent(new CustomEvent('ip-calendario-updated',{detail:{tareaId, fechaVen:tarea.fechaVen, ts:Date.now()}}));
+    if(window.PushSvc?.isEnabled()) {
+      const icon = tarea.prioridad==='urgente'?'🔴':tarea.prioridad==='alta'?'⚠️':'🔔';
+      window.PushSvc.schedule('alerta_'+tareaId, icon+' '+(PRIO_TIPO[tarea.prioridad]||'Recordatorio'), tarea.titulo, tarea.fechaVen+'T08:00:00', 'ip-alerta');
+    }
+    let r2 = {...r, estado:'en_tramite', tareaId, tramitadoEn:now, tramitadoPorId:user?.id||'',
+      areaEspecialidad: tram.area, mensajeCliente: tram.mensaje.trim()};
+    r2 = ReqSvc.evento(r2, 'en_tramite', tram.mensaje.trim() || 'Su requerimiento fue asignado a nuestro equipo.', 'Integra Consultores');
+    guardarReq(r2);
+    setTram(null);
+    toast(r.numero+' tramitado · tarea asignada a '+(resp?.nombre||'colaborador'),'success');
+  };
+
+  const pedirInfo = () => {
+    const r = requerimientos.find(x=>x.id===info?.id);
+    if(!r) return;
+    if(!info.texto.trim()) return toast('Escriba la información que necesita del cliente','error');
+    const now = new Date().toISOString();
+    let r2 = {...r, estado:'info_solicitada', preguntaEquipo:info.texto.trim(), infoSolicitadaEn:now};
+    r2 = ReqSvc.evento(r2, 'info_solicitada', info.texto.trim(), 'Integra Consultores');
+    guardarReq(r2); setInfo(null); setVerId(null);
+    toast('Solicitud enviada al cliente','success');
+  };
+
+  const marcarNoProcede = () => {
+    const r = requerimientos.find(x=>x.id===noProc?.id);
+    if(!r) return;
+    if(!noProc.texto.trim()) return toast('Indique el motivo; el cliente lo verá','error');
+    const now = new Date().toISOString();
+    let r2 = {...r, estado:'no_procede', motivoNoProcede:noProc.texto.trim(), cerradoEn:now, cerradoPorId:user?.id||''};
+    r2 = ReqSvc.evento(r2, 'no_procede', noProc.texto.trim(), 'Integra Consultores');
+    guardarReq(r2); setNoProc(null); setVerId(null);
+    toast(r.numero+' marcado como no procede','info');
+  };
+
+  // ── Responder observación del cliente ──
+  const responderObs = () => {
+    const r = requerimientos.find(x=>x.id===resp?.id);
+    if(!r) return;
+    if(!resp.texto.trim()) return toast('Escriba la respuesta para el cliente','error');
+    const now = new Date().toISOString();
+    let r2 = {...r, estado:'respondida', respuestaEquipo:resp.texto.trim(), respondidoEn:now, respondidoPorId:user?.id||''};
+    r2 = ReqSvc.evento(r2, 'respuesta_equipo', resp.texto.trim(), 'Integra Consultores');
+    guardarReq(r2); setResp(null);
+    toast(r.numero+' respondida · el cliente ya la ve en su portal','success');
+  };
+
+  // ── Agendar solicitud de reunión / capacitación (mismo esquema del Calendario) ──
+  const agendar = () => {
+    const r = requerimientos.find(x=>x.id===agd?.reqId);
+    if(!r) return;
+    if(!agd.titulo.trim()) return toast('El título es requerido','error');
+    if(!agd.fecha) return toast('La fecha es requerida','error');
+    const esReunion = agd.subtipo!=='capacitacion';
+    const now = new Date().toISOString();
+    const evento = {
+      id: uid(), titulo: agd.titulo.trim(), tipo: esReunion?'Reunión':'Capacitación',
+      fechaVen: agd.fecha, fechaInicio: agd.fecha, horaInicio: agd.horaInicio||'', horaFin: agd.horaFin||'',
+      lugar: agd.lugar||'', desc: (r.numero+' · Solicitado por el cliente desde el portal.\n'+(r.desc||'')).trim(),
+      clienteId: r.clienteId, responsableId: agd.responsableId||'', responsablesIds: agd.responsableId?[agd.responsableId]:[],
+      estado: 'pendiente', prioridad: r.prioridad||'media', esAlerta: true, tareaVinculadaId: null, auto: false,
+      creadoEn: now, updatedAt: now, requerimientoId: r.id, origen: 'portal_cliente',
+      ...(esReunion
+        ? {modalidad: agd.modalidad||'presencial', linkVirtual: agd.linkVirtual||'', agenda: r.desc||''}
+        : {instructor: agd.instructor||'', duracionH: agd.duracionH||'', modalidad: agd.modalidad||'presencial', linkVirtual: agd.linkVirtual||''}),
+    };
+    DB.set('tareas', evento);
+    setTareas(prev => [evento, ...prev]);
+    window.dispatchEvent(new CustomEvent('ip-calendario-updated',{detail:{ts:Date.now()}}));
+    const cuando = fmt.date(agd.fecha)+(agd.horaInicio?' a las '+agd.horaInicio:'');
+    let r2 = {...r, estado:'agendado', eventoId: evento.id, agendadoEn: now, agendadoPorId: user?.id||'',
+      fechaAgendada: agd.fecha, horaAgendada: agd.horaInicio||'', horaFinAgendada: agd.horaFin||'',
+      modalidadAgendada: agd.modalidad||'presencial', lugarAgendado: agd.lugar||'', linkAgendado: agd.linkVirtual||'',
+      mensajeCliente: agd.mensaje.trim()};
+    r2 = ReqSvc.evento(r2, 'agendado', agd.mensaje.trim() || ('Su '+(esReunion?'reunión':'capacitación')+' quedó agendada para el '+cuando+'.'), 'Integra Consultores');
+    guardarReq(r2); setAgd(null);
+    toast(r.numero+' agendada · '+cuando,'success');
+  };
+
+  const tone = k => REQ_TONE_DARK[k]||REQ_TONE_DARK.gray;
+  const EstadoChip = ({r}) => { const e=reqEstado(r,tareas); const t=tone(e.tone);
+    return <span style={{padding:'3px 10px',borderRadius:99,background:t.bg,color:t.fg,fontSize:11,fontWeight:700,whiteSpace:'nowrap'}}>{e.label}</span>; };
+
+  const ver = verId ? requerimientos.find(x=>x.id===verId) : null;
+  const reqResp = resp ? requerimientos.find(x=>x.id===resp.id) : null;
+  const reqAgd  = agd ? requerimientos.find(x=>x.id===agd.reqId) : null;
+  const TIPOS_FIL = [{id:'todos',l:'Todos los tipos'},{id:'requerimiento',l:'Requerimientos'},{id:'observacion',l:'Observaciones'},{id:'agenda',l:'Solicitudes de agenda'}];
+  const accionLbl = r => { const tp=reqTipo(r);
+    if(r.estado==='no_procede') return null;
+    if(tp==='observacion') return r.estado==='respondida'?null:'Responder';
+    if(tp==='agenda') return r.estado==='agendado'?null:'Agendar';
+    return r.tareaId?null:'Tramitar'; };
+  const reqTram = tram ? requerimientos.find(x=>x.id===tram.reqId) : null;
+  const sugeridos = reqTram ? ReqSvc.sugerirResponsables({...reqTram, areaEspecialidad:tram.area}, equipo, tareas) : [];
+
+  const FILTROS = [
+    {id:'atender',l:'Por atender',n:conteo.atender},
+    {id:'info',l:'Esperan respuesta del cliente',n:conteo.info},
+    {id:'proceso',l:'En proceso',n:conteo.proceso},
+    {id:'cerrados',l:'Cerrados',n:conteo.cerrados},
+    {id:'todos',l:'Todos',n:conteo.todos},
+  ];
+
+  return <div className="fade dash-premium">
+    <div className="grid-4 kpi-row-top" style={{marginBottom:16}}>
+      <KPI label="Por atender" val={conteo.atender} ico="bell" color="red"/>
+      <KPI label="Esperan respuesta del cliente" val={conteo.info} ico="info" color="gold"/>
+      <KPI label="En proceso" val={conteo.proceso} ico="tasks" color="blue"/>
+      <KPI label="Cerrados" val={conteo.cerrados} ico="check" color="green"/>
+    </div>
+
+    <div className="fil-bar" style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:14,alignItems:'center'}}>
+      {FILTROS.map(f=>(
+        <button key={f.id} className={clx('chip',fil===f.id&&'active')} onClick={()=>setFil(f.id)}
+          style={f.id==='atender'&&f.n>0&&fil!==f.id?{borderColor:'rgba(248,113,113,.5)',color:'#fca5a5'}:undefined}>
+          {f.l} ({f.n})
+        </button>
+      ))}
+      <select className="inp" style={{width:'auto',minWidth:170,padding:'5px 10px',fontSize:12}} value={filTipo} onChange={e=>setFilTipo(e.target.value)} aria-label="Tipo de solicitud">
+        {TIPOS_FIL.map(t=><option key={t.id} value={t.id}>{t.l}</option>)}
+      </select>
+      <input className="inp" style={{flex:1,minWidth:200,padding:'5px 10px',fontSize:12}} placeholder="Buscar por número, asunto o cliente..." value={q} onChange={e=>setQ(e.target.value)}/>
+    </div>
+
+    <div className="card" style={{overflowX:'auto'}}>
+      <table className="tbl">
+        <thead><tr>{['N.°','Tipo','Cliente','Asunto','Área','Prioridad','Recibido','Estado','Acciones'].map(h=><th key={h}>{h}</th>)}</tr></thead>
+        <tbody>
+          {lista.length===0&&<tr><td colSpan={9} style={{textAlign:'center',padding:40,color:'#475569'}}>
+            {fil==='atender'?'No hay requerimientos por atender.':'Sin requerimientos en esta vista.'}
+          </td></tr>}
+          {lista.map(r=>{
+            const pend = r.estado==='recibido';
+            return <tr key={r.id} style={pend?{background:'rgba(220,38,38,.06)'}:undefined}>
+              <td><span style={{fontFamily:'monospace',color:pend?'#fca5a5':'#C9A84C',fontWeight:700}}>{r.numero}</span></td>
+              <td><span style={{display:'inline-flex',alignItems:'center',gap:5,fontSize:11,color:'#94a3b8',whiteSpace:'nowrap'}}><Ico n={REQ_TIPOS[reqTipo(r)].ico} s={12} c="#C9A84C"/>{REQ_TIPOS[reqTipo(r)].l}</span></td>
+              <td style={{color:'#cbd5e1',fontSize:12}}>{r.clienteNombre||clientes.find(c=>c.id===r.clienteId)?.nombre||'—'}</td>
+              <td><p style={{margin:0,color:'#fff',fontWeight:500,maxWidth:280,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.titulo}</p>
+                {r.respuestaCliente&&pend&&reqTipo(r)!=='observacion'&&<p style={{margin:'2px 0 0',fontSize:10,color:'#fcd34d'}}>El cliente respondió su solicitud</p>}
+                {reqTipo(r)==='observacion'&&pend&&r.ultimoMensajeCliente&&<p style={{margin:'2px 0 0',fontSize:10,color:'#fcd34d',maxWidth:280,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>“{r.ultimoMensajeCliente}”</p>}
+                {reqTipo(r)==='agenda'&&<p style={{margin:'2px 0 0',fontSize:10,color:'#94a3b8'}}>{r.subtipo==='capacitacion'?'Capacitación':'Reunión'} · propone {r.fechaPropuesta?fmt.date(r.fechaPropuesta):'—'}{r.horaPropuesta?' '+r.horaPropuesta:''}</p>}
+              </td>
+              <td style={{fontSize:12,color:'#94a3b8'}}>{reqAreaLabel(r.areaEspecialidad)}</td>
+              <td><SBadge s={r.prioridad}/></td>
+              <td style={{fontSize:11,color:'#64748b',whiteSpace:'nowrap'}}>{reqHace(r.recibidoEn||r.creadoEn)}</td>
+              <td><EstadoChip r={r}/></td>
+              <td><div style={{display:'flex',gap:4,alignItems:'center'}}>
+                <button className="btn btn-ghost btn-sm p-1.5" title="Ver detalle" aria-label="Ver detalle" onClick={()=>setVerId(r.id)}><Ico n="eye" s={14}/></button>
+                {accionLbl(r)&&<button className="btn btn-g btn-sm" onClick={()=>accionPrincipal(r)}>{accionLbl(r)}</button>}
+              </div></td>
+            </tr>;
+          })}
+        </tbody>
+      </table>
+    </div>
+
+    {/* ── Detalle ── */}
+    <Modal open={!!ver} onClose={()=>setVerId(null)} title={ver?`${ver.numero} · ${ver.titulo}`:''} wide>
+      {ver&&(()=>{
+        const t = ver.tareaId ? tareas.find(x=>x.id===ver.tareaId) : null;
+        const rIdsT = t ? (Array.isArray(t.responsablesIds)&&t.responsablesIds.length?t.responsablesIds:(t.responsableId?[t.responsableId]:[])) : [];
+        const resps = rIdsT.map(id=>equipo.find(e=>e.id===id)?.nombre).filter(Boolean).join(', ');
+        const lbl = {fontSize:10,color:'#64748b',textTransform:'uppercase',letterSpacing:'.4px',margin:'0 0 4px'};
+        return <div style={{display:'grid',gap:14}}>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:12}}>
+            <div><p style={lbl}>Cliente</p><p style={{margin:0,color:'#fff',fontWeight:600}}>{ver.clienteNombre||'—'}</p><p style={{margin:0,fontSize:12,color:'#94a3b8'}}>{ver.solicitanteNombre||''}{ver.solicitanteEmail?' · '+ver.solicitanteEmail:''}</p></div>
+            <div><p style={lbl}>Área · Prioridad</p><p style={{margin:0,color:'#cbd5e1'}}>{reqAreaLabel(ver.areaEspecialidad)} · {reqPrioLabel(ver.prioridad)}</p></div>
+            <div><p style={lbl}>Lo necesita</p><p style={{margin:0,color:'#cbd5e1'}}>{ver.fechaRequerida?fmt.date(ver.fechaRequerida):'Sin fecha'}</p></div>
+          </div>
+          <div><p style={lbl}>Descripción</p><p style={{margin:0,color:'#cbd5e1',lineHeight:1.6,whiteSpace:'pre-wrap'}}>{ver.desc||'—'}</p></div>
+          {Array.isArray(ver.adjuntos)&&ver.adjuntos.length>0&&<div>
+            <p style={lbl}>Soportes del cliente</p>
+            <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+              {ver.adjuntos.map((a,i)=><a key={i} href={a.data} download={a.nombre} style={{display:'inline-flex',alignItems:'center',gap:6,padding:'6px 10px',borderRadius:8,border:'1px solid #243447',background:'#0f1923',fontSize:12,color:'#cbd5e1',textDecoration:'none'}}>
+                <Ico n={a.tipo==='application/pdf'?'pdf':'photo'} s={13} c="#C9A84C"/>{a.nombre} · {a.kb} KB</a>)}
+            </div>
+          </div>}
+          {ver.estado==='info_solicitada'&&<div style={{padding:'10px 14px',borderRadius:8,background:'rgba(245,158,11,.08)',border:'1px solid rgba(245,158,11,.3)'}}>
+            <p style={{...lbl,color:'#fcd34d'}}>Información solicitada al cliente</p><p style={{margin:0,color:'#fde68a'}}>{ver.preguntaEquipo}</p>
+            <p style={{margin:'6px 0 0',fontSize:12,color:'#94a3b8'}}>Esperando respuesta del cliente.</p></div>}
+          {ver.respuestaCliente&&<div style={{padding:'10px 14px',borderRadius:8,background:'rgba(96,165,250,.08)',border:'1px solid rgba(96,165,250,.25)'}}>
+            <p style={{...lbl,color:'#93c5fd'}}>Respuesta del cliente</p><p style={{margin:0,color:'#cbd5e1',whiteSpace:'pre-wrap'}}>{ver.respuestaCliente}</p></div>}
+          {ver.estado==='no_procede'&&<div style={{padding:'10px 14px',borderRadius:8,background:'rgba(148,163,184,.08)',border:'1px solid #334155'}}>
+            <p style={lbl}>Motivo · no procede</p><p style={{margin:0,color:'#cbd5e1'}}>{ver.motivoNoProcede}</p></div>}
+          {reqTipo(ver)==='observacion'&&(()=>{ const to=tareas.find(x=>x.id===ver.tareaObservadaId);
+            const ids = to ? (Array.isArray(to.responsablesIds)&&to.responsablesIds.length?to.responsablesIds:(to.responsableId?[to.responsableId]:[])) : [];
+            return <div style={{padding:'12px 14px',borderRadius:8,background:'rgba(201,168,76,.06)',border:'1px solid rgba(201,168,76,.25)',display:'flex',gap:16,flexWrap:'wrap',alignItems:'center'}}>
+              <div style={{flex:1,minWidth:200}}><p style={{...lbl,color:'#C9A84C'}}>Tarea observada (solo visible para el equipo)</p>
+                <p style={{margin:0,color:'#fff',fontWeight:600}}>{to?.titulo||'La tarea ya no existe'}</p>
+                {to&&<p style={{margin:'2px 0 0',fontSize:12,color:'#94a3b8'}}>{ids.map(id=>equipo.find(e=>e.id===id)?.nombre).filter(Boolean).join(', ')||'Sin responsable'} · vence {fmt.date(to.fechaVen)}</p>}
+                {to?.actividadesRealizadas&&<p style={{margin:'6px 0 0',fontSize:12,color:'#cbd5e1',whiteSpace:'pre-wrap'}}>Avance registrado: {to.actividadesRealizadas}</p>}</div>
+              {to&&<SBadge s={to.estado}/>}
+            </div>; })()}
+          {reqTipo(ver)==='agenda'&&(()=>{ const ev=reqEventoDe(ver,tareas);
+            return <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(170px,1fr))',gap:12,padding:'12px 14px',borderRadius:8,background:'#0f1923',border:'1px solid #243447'}}>
+              <div><p style={lbl}>Tipo</p><p style={{margin:0,color:'#fff'}}>{ver.subtipo==='capacitacion'?'Capacitación':'Reunión'}</p></div>
+              <div><p style={lbl}>Propuesta del cliente</p><p style={{margin:0,color:'#cbd5e1'}}>{ver.fechaPropuesta?fmt.date(ver.fechaPropuesta):'—'}{ver.horaPropuesta?' · '+ver.horaPropuesta:''} · {ver.modalidad||'presencial'}</p></div>
+              {ver.asistentes&&<div><p style={lbl}>Asistentes</p><p style={{margin:0,color:'#cbd5e1'}}>{ver.asistentes}</p></div>}
+              {ver.estado==='agendado'&&<div><p style={{...lbl,color:'#4ade80'}}>Agendado</p><p style={{margin:0,color:'#fff',fontWeight:600}}>{fmt.date(ev?.fechaVen||ver.fechaAgendada)}{(ev?.horaInicio||ver.horaAgendada)?' · '+(ev?.horaInicio||ver.horaAgendada):''}</p>
+                {!ev&&<p style={{margin:'2px 0 0',fontSize:11,color:'#f87171'}}>El evento ya no existe en el Calendario.</p>}</div>}
+            </div>; })()}
+          {t&&<div style={{padding:'12px 14px',borderRadius:8,background:'rgba(201,168,76,.06)',border:'1px solid rgba(201,168,76,.25)',display:'flex',gap:16,flexWrap:'wrap',alignItems:'center'}}>
+            <div style={{flex:1,minWidth:200}}><p style={{...lbl,color:'#C9A84C'}}>Tarea vinculada</p><p style={{margin:0,color:'#fff',fontWeight:600}}>{t.titulo}</p>
+              <p style={{margin:'2px 0 0',fontSize:12,color:'#94a3b8'}}>{resps||'Sin responsable'} · vence {fmt.date(t.fechaVen)}</p></div>
+            <SBadge s={t.estado}/>
+          </div>}
+          <div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr)',gap:16}}>
+            <div><p style={lbl}>Avance</p><ReqPasos req={ver} tareas={tareas}/></div>
+            <div><p style={lbl}>Historial</p>
+              <div style={{display:'flex',flexDirection:'column',gap:8,maxHeight:180,overflowY:'auto'}}>
+                {(ver.historial||[]).slice().reverse().map((h,i)=><div key={i} style={{fontSize:12,borderLeft:'2px solid #243447',paddingLeft:10}}>
+                  <span style={{color:'#64748b'}}>{reqFechaHora(h.ts)} · {h.autor}</span>
+                  {h.texto&&<p style={{margin:'2px 0 0',color:'#cbd5e1',whiteSpace:'pre-wrap'}}>{h.texto}</p>}
+                </div>)}
+              </div>
+            </div>
+          </div>
+          {reqTipo(ver)==='observacion'
+            ? <div style={{display:'flex',justifyContent:'flex-end',gap:8,flexWrap:'wrap',paddingTop:12,borderTop:'1px solid #243447'}}>
+                <button className="btn btn-g btn-sm" onClick={()=>{ setResp({id:ver.id,texto:''}); setVerId(null); }}><Ico n="send" s={13}/>{ver.estado==='respondida'?'Enviar otra respuesta':'Responder'}</button>
+              </div>
+            : accionLbl(ver)&&<div style={{display:'flex',justifyContent:'space-between',gap:8,flexWrap:'wrap',paddingTop:12,borderTop:'1px solid #243447'}}>
+            <button className="btn btn-ghost btn-sm" onClick={()=>setNoProc({id:ver.id,texto:''})}>Marcar como no procede</button>
+            <div style={{display:'flex',gap:8}}>
+              {ver.estado!=='info_solicitada'&&<button className="btn btn-ghost btn-sm" onClick={()=>setInfo({id:ver.id,texto:''})}>Pedir más información</button>}
+              <button className="btn btn-g btn-sm" onClick={()=>accionPrincipal(ver)}>{accionLbl(ver)}</button>
+            </div>
+          </div>}
+        </div>;
+      })()}
+    </Modal>
+
+    {/* ── Tramitar ── */}
+    <Modal open={!!tram&&!!reqTram} onClose={()=>setTram(null)} title={reqTram?`Tramitar ${reqTram.numero}`:''} wide>
+      {tram&&reqTram&&<div style={{display:'grid',gap:16}}>
+        <div style={{padding:'12px 14px',borderRadius:10,background:'#121b29',border:'1px solid #243447'}}>
+          <p style={{margin:'0 0 4px',fontSize:11,color:'#C9A84C',fontWeight:700}}>Lo que pidió el cliente · {reqTram.clienteNombre}</p>
+          <p style={{margin:0,color:'#fff',fontWeight:600}}>{reqTram.titulo}</p>
+          <p style={{margin:'4px 0 0',fontSize:13,color:'#94a3b8',lineHeight:1.5,whiteSpace:'pre-wrap'}}>{reqTram.desc}</p>
+          {reqTram.respuestaCliente&&<p style={{margin:'6px 0 0',fontSize:12,color:'#93c5fd',whiteSpace:'pre-wrap'}}>Respuesta del cliente: {reqTram.respuestaCliente}</p>}
+        </div>
+        <div className="grid-2">
+          <F label="Título de la tarea *" col2><input className="inp" value={tram.titulo} onChange={e=>setTram(p=>({...p,titulo:e.target.value}))}/></F>
+          <F label="Cliente"><input className="inp" value={reqTram.clienteNombre||''} disabled style={{opacity:.7}}/></F>
+          <F label="Área de especialidad">
+            <select className="inp" value={tram.area} onChange={e=>setTram(p=>({...p,area:e.target.value}))}>
+              <option value="">— Sin clasificar —</option>
+              {REQ_AREAS.map(a=><option key={a.id} value={a.id}>{a.label}</option>)}
+            </select>
+          </F>
+          <F label="Prioridad">
+            <select className="inp" value={tram.prioridad} onChange={e=>setTram(p=>({...p,prioridad:e.target.value}))}>
+              {REQ_PRIO.map(p=><option key={p.id} value={p.id}>{p.label}</option>)}
+            </select>
+          </F>
+          <F label="Fecha de vencimiento *"><input type="date" className="inp" value={tram.fechaVen} onChange={e=>setTram(p=>({...p,fechaVen:e.target.value}))}/></F>
+          <F label="Responsable *" col2>
+            {sugeridos.length===0
+              ? <p style={{fontSize:12,color:'#f87171',margin:0}}>No hay integrantes activos en Equipo.</p>
+              : <div style={{display:'flex',flexDirection:'column',gap:6,maxHeight:230,overflowY:'auto'}}>
+                  {sugeridos.map((e,i)=>{
+                    const sel = tram.responsableId===e.id;
+                    return <label key={e.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',borderRadius:10,cursor:'pointer',
+                      border:sel?'2px solid #C9A84C':'1px solid #243447',background:sel?'rgba(201,168,76,.08)':'#0f1923'}}>
+                      <input type="radio" name="req-resp" checked={sel} onChange={()=>setTram(p=>({...p,responsableId:e.id}))} style={{accentColor:'#C9A84C',width:16,height:16}}/>
+                      <span style={{width:30,height:30,borderRadius:'50%',background:'linear-gradient(135deg,#1E3A5F,#2a5298)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,color:'#fff',fontSize:12,flexShrink:0}}>{(e.nombre||'?').charAt(0)}</span>
+                      <span style={{flex:1,minWidth:0}}><b style={{display:'block',color:'#fff',fontSize:13}}>{e.nombre}</b>
+                        <span style={{fontSize:11,color:'#94a3b8'}}>{e.cargo||'Sin cargo'} · {e.carga} tarea{e.carga!==1?'s':''} activa{e.carga!==1?'s':''}{e.disponible===false?' · no disponible':''}</span></span>
+                      {i===0&&<span style={{fontSize:10,fontWeight:700,color:'#C9A84C',border:'1px solid rgba(201,168,76,.5)',borderRadius:99,padding:'2px 8px',whiteSpace:'nowrap'}}>{e.afinidad>0?'Sugerido por área':'Menor carga'}</span>}
+                    </label>;
+                  })}
+                </div>}
+          </F>
+          <F label="Mensaje para el cliente (opcional)" col2>
+            <textarea className="inp" rows={2} value={tram.mensaje} onChange={e=>setTram(p=>({...p,mensaje:e.target.value}))} placeholder="Ej.: Programamos la actividad para el viernes a las 7:00 a. m."/>
+          </F>
+        </div>
+        <p style={{margin:0,padding:'10px 14px',borderRadius:8,background:'#0f1923',border:'1px solid #243447',fontSize:12,color:'#94a3b8',lineHeight:1.6}}>
+          Al tramitar se crea la tarea, su alerta y su evento en el calendario. El cliente verá el estado “En trámite” sin el nombre del responsable.
+        </p>
+        <div style={{display:'flex',justifyContent:'flex-end',gap:10}}>
+          <button className="btn btn-ghost btn-sm" onClick={()=>setTram(null)}>Cancelar</button>
+          <button className="btn btn-g btn-sm" onClick={tramitar}><Ico n="check" s={14}/>Crear tarea y asignar</button>
+        </div>
+      </div>}
+    </Modal>
+
+    {/* ── Pedir más información ── */}
+    <Modal open={!!info} onClose={()=>setInfo(null)} title="Pedir más información al cliente">
+      {info&&<div style={{display:'grid',gap:12}}>
+        <p style={{margin:0,fontSize:13,color:'#94a3b8'}}>El cliente verá esta pregunta en su portal y podrá responder. Su respuesta volverá a la bandeja como requerimiento por atender.</p>
+        <textarea className="inp" rows={4} value={info.texto} onChange={e=>setInfo(p=>({...p,texto:e.target.value}))} placeholder="¿Qué necesita saber para tramitar este requerimiento?"/>
+        <div style={{display:'flex',justifyContent:'flex-end',gap:10}}>
+          <button className="btn btn-ghost btn-sm" onClick={()=>setInfo(null)}>Cancelar</button>
+          <button className="btn btn-p btn-sm" onClick={pedirInfo}>Enviar solicitud</button>
+        </div>
+      </div>}
+    </Modal>
+
+    {/* ── Responder observación ── */}
+    <Modal open={!!resp&&!!reqResp} onClose={()=>setResp(null)} title={reqResp?`Responder ${reqResp.numero}`:''} wide>
+      {resp&&reqResp&&(()=>{ const to=tareas.find(x=>x.id===reqResp.tareaObservadaId);
+        return <div style={{display:'grid',gap:14}}>
+          <div style={{padding:'12px 14px',borderRadius:10,background:'#121b29',border:'1px solid #243447'}}>
+            <p style={{margin:'0 0 4px',fontSize:11,color:'#C9A84C',fontWeight:700}}>{reqResp.clienteNombre} · sobre la tarea</p>
+            <p style={{margin:0,color:'#fff',fontWeight:600}}>{to?.titulo||reqResp.titulo}</p>
+            {to&&<p style={{margin:'4px 0 0',fontSize:12,color:'#94a3b8'}}>Estado actual: {ESTADO_LABEL[to.estado]||to.estado} · vence {fmt.date(to.fechaVen)}</p>}
+          </div>
+          <div style={{display:'flex',flexDirection:'column',gap:8,maxHeight:240,overflowY:'auto'}}>
+            {(reqResp.historial||[]).filter(h=>h.texto&&(h.estado==='mensaje_cliente'||h.estado==='respuesta_equipo')).map((h,i)=>{ const cli=h.estado==='mensaje_cliente';
+              return <div key={i} className={cli?'cboth':'cbme'} style={{maxWidth:'88%',alignSelf:cli?'flex-start':'flex-end'}}>
+                <span style={{fontSize:10.5,color:cli?'#C9A84C':'#bfdbfe',fontWeight:600}}>{cli?(h.autor||'Cliente'):'Integra Consultores'} · {reqFechaHora(h.ts)}</span>
+                <p style={{margin:'3px 0 0',fontSize:13,color:'#e2e8f0',whiteSpace:'pre-wrap'}}>{h.texto}</p>
+              </div>; })}
+          </div>
+          <F label="Respuesta para el cliente *"><textarea className="inp" rows={4} value={resp.texto} onChange={e=>setResp(p=>({...p,texto:e.target.value}))} placeholder="Explique el avance, la trazabilidad o los próximos pasos. El cliente no verá nombres de responsables."/></F>
+          <div style={{display:'flex',justifyContent:'flex-end',gap:10}}>
+            <button className="btn btn-ghost btn-sm" onClick={()=>setResp(null)}>Cancelar</button>
+            <button className="btn btn-g btn-sm" onClick={responderObs}><Ico n="send" s={13}/>Enviar respuesta</button>
+          </div>
+        </div>; })()}
+    </Modal>
+
+    {/* ── Agendar reunión / capacitación ── */}
+    <Modal open={!!agd&&!!reqAgd} onClose={()=>setAgd(null)} title={reqAgd?`Agendar ${reqAgd.numero}`:''} wide>
+      {agd&&reqAgd&&(()=>{ const esReu = agd.subtipo!=='capacitacion'; const up=k=>e=>setAgd(p=>({...p,[k]:e.target.value}));
+        return <div style={{display:'grid',gap:16}}>
+          <div style={{padding:'12px 14px',borderRadius:10,background:'#121b29',border:'1px solid #243447'}}>
+            <p style={{margin:'0 0 4px',fontSize:11,color:'#C9A84C',fontWeight:700}}>Lo que solicitó el cliente · {reqAgd.clienteNombre}</p>
+            <p style={{margin:0,color:'#fff',fontWeight:600}}>{reqAgd.titulo}</p>
+            <p style={{margin:'4px 0 0',fontSize:12,color:'#94a3b8'}}>Propone {reqAgd.fechaPropuesta?fmt.date(reqAgd.fechaPropuesta):'—'}{reqAgd.horaPropuesta?' · '+reqAgd.horaPropuesta:''} · {reqAgd.modalidad||'presencial'}{reqAgd.asistentes?' · '+reqAgd.asistentes+' asistentes':''}</p>
+            {reqAgd.desc&&<p style={{margin:'4px 0 0',fontSize:13,color:'#cbd5e1',whiteSpace:'pre-wrap'}}>{reqAgd.desc}</p>}
+          </div>
+          <div className="grid-2">
+            <F label="Tipo">
+              <select className="inp" value={agd.subtipo} onChange={up('subtipo')}><option value="reunion">Reunión</option><option value="capacitacion">Capacitación</option></select>
+            </F>
+            <F label="Cliente"><input className="inp" value={reqAgd.clienteNombre||''} disabled style={{opacity:.7}}/></F>
+            <F label="Título *" col2><input className="inp" value={agd.titulo} onChange={up('titulo')}/></F>
+            <F label="Fecha *"><input type="date" className="inp" value={agd.fecha} onChange={up('fecha')}/></F>
+            <F label="Modalidad">
+              <select className="inp" value={agd.modalidad} onChange={up('modalidad')}><option value="presencial">Presencial</option><option value="virtual">Virtual</option><option value="hibrida">Híbrida</option></select>
+            </F>
+            <F label="Hora de inicio"><input type="time" className="inp" value={agd.horaInicio} onChange={up('horaInicio')}/></F>
+            <F label="Hora de fin"><input type="time" className="inp" value={agd.horaFin} onChange={up('horaFin')}/></F>
+            {(agd.modalidad==='virtual'||agd.modalidad==='hibrida')&&<F label="Enlace virtual" col2><input className="inp" value={agd.linkVirtual} onChange={up('linkVirtual')} placeholder="https://meet.google.com/..."/></F>}
+            <F label="Lugar / Sala"><input className="inp" value={agd.lugar} onChange={up('lugar')}/></F>
+            <F label="Consultor responsable">
+              <select className="inp" value={agd.responsableId} onChange={up('responsableId')}>
+                <option value="">Sin asignar</option>
+                {equipo.filter(e=>e.activo!==false).map(e=><option key={e.id} value={e.id}>{e.nombre}</option>)}
+              </select>
+            </F>
+            {!esReu&&<F label="Instructor"><input className="inp" value={agd.instructor} onChange={up('instructor')}/></F>}
+            {!esReu&&<F label="Duración (horas)"><input type="number" min="0.5" step="0.5" className="inp" value={agd.duracionH} onChange={up('duracionH')}/></F>}
+            <F label="Mensaje para el cliente (opcional)" col2><textarea className="inp" rows={2} value={agd.mensaje} onChange={up('mensaje')} placeholder="Ej.: Confirmamos la reunión. Le enviaremos el enlace un día antes."/></F>
+          </div>
+          <p style={{margin:0,padding:'10px 14px',borderRadius:8,background:'#0f1923',border:'1px solid #243447',fontSize:12,color:'#94a3b8',lineHeight:1.6}}>
+            Al agendar se crea el evento en el Calendario del equipo y la solicitud pasa a “Agendado” en el portal del cliente.
+          </p>
+          <div style={{display:'flex',justifyContent:'flex-end',gap:10}}>
+            <button className="btn btn-ghost btn-sm" onClick={()=>setAgd(null)}>Cancelar</button>
+            <button className="btn btn-g btn-sm" onClick={agendar}><Ico n="cal" s={14}/>Agendar {esReu?'reunión':'capacitación'}</button>
+          </div>
+        </div>; })()}
+    </Modal>
+
+    {/* ── No procede ── */}
+    <Modal open={!!noProc} onClose={()=>setNoProc(null)} title="Marcar como no procede">
+      {noProc&&<div style={{display:'grid',gap:12}}>
+        <p style={{margin:0,fontSize:13,color:'#94a3b8'}}>El requerimiento se cierra sin crear tarea. El cliente verá el motivo.</p>
+        <textarea className="inp" rows={4} value={noProc.texto} onChange={e=>setNoProc(p=>({...p,texto:e.target.value}))} placeholder="Ej.: El servicio solicitado no está incluido en el contrato vigente."/>
+        <div style={{display:'flex',justifyContent:'flex-end',gap:10}}>
+          <button className="btn btn-ghost btn-sm" onClick={()=>setNoProc(null)}>Cancelar</button>
+          <button className="btn btn-d btn-sm" onClick={marcarNoProcede}>Marcar como no procede</button>
+        </div>
+      </div>}
+    </Modal>
+  </div>;
+};
+
+// ── CONFIGURACIÓN › ACCESOS DE CLIENTES (solo administrador) ─────────
+const AccesosClientes = ({toast, isAdmin, user}) => {
+  const {clientes} = useApp();
+  const soloClientes = arr => (arr||[]).filter(u=>u.rol==='cliente');
+  const [lista,setLista] = useState(()=>soloClientes(DB.get('usuarios')));
+  const [empresas,setEmpresas] = useState(()=>DB.get('portal_empresas'));
+  const VACIO = {id:null, clienteId:'', nombres:'', apellidos:'', cargo:'', email:'', password:'', confirma:'', verSoportes:true};
+  const [form,setForm]   = useState(VACIO);
+  const [verPwd,setVerPwd] = useState(false);
+  const [saving,setSaving] = useState(false);
+  const [creado,setCreado] = useState(null); // credenciales recién creadas {cliente, nombre, email, password}
+  const [pwd,setPwd]     = useState(null);   // {u, nueva, confirma}
+  const [del,setDel]     = useState(null);   // usuario
+  const [logoBusy,setLogoBusy] = useState(false);
+  const syncRef = useRef(false);
+
+  useEffect(()=>{
+    const u1 = DB.sub('usuarios', d=>setLista(soloClientes(d)));
+    const u2 = DB.sub('portal_empresas', setEmpresas);
+    return ()=>{ u1(); u2(); };
+  },[]);
+
+  const clientesOrd = useMemo(()=>[...clientes].sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||'','es')),[clientes]);
+  const cliDe = id => clientes.find(c=>c.id===id);
+  const empDe = id => (empresas||[]).find(e=>e.id===id);
+  const pwdOk = p => p && p.length>=8 && /[A-Z]/.test(p) && /[0-9]/.test(p);
+  const generar = () => {
+    const A='ABCDEFGHJKLMNPQRSTUVWXYZ', a='abcdefghijkmnpqrstuvwxyz', n='23456789', all=A+a+n;
+    const rnd = k => { const b=new Uint32Array(1); crypto.getRandomValues(b); return b[0]%k; };
+    let s = A[rnd(A.length)] + n[rnd(n.length)] + a[rnd(a.length)];
+    for(let i=0;i<9;i++) s += all[rnd(all.length)];
+    return s.split('').sort(()=>rnd(3)-1).join('');
+  };
+  // Separa "Nombre Apellido" de perfiles creados antes de v15
+  const partirNombre = u => {
+    if(u.nombres!==undefined || u.apellidos!==undefined) return {nombres:u.nombres||'', apellidos:u.apellidos||''};
+    const p = String(u.nombre||'').trim().split(/\s+/);
+    return {nombres:p.slice(0, p.length>2?2:1).join(' '), apellidos:p.slice(p.length>2?2:1).join(' ')};
+  };
+  const persistirPerfil = async (perfil) => {
+    await _db.collection('usuarios').doc(perfil.id).set(perfil, {merge:true});
+    setLista(prev => prev.some(x=>x.id===perfil.id) ? prev.map(x=>x.id===perfil.id?perfil:x) : [perfil,...prev]);
+    try {
+      const us = JSON.parse(localStorage.getItem('ip_usuarios')||'[]');
+      const i = us.findIndex(x=>x.id===perfil.id);
+      if(i>=0) us[i]=perfil; else us.unshift(perfil);
+      localStorage.setItem('ip_usuarios', JSON.stringify(us));
+      // Igual que la pestaña Usuarios: fija el rol para que nunca se reinterprete
+      const locks = JSON.parse(localStorage.getItem('ip_rol_lock')||'{}');
+      locks[perfil.id] = 'cliente';
+      localStorage.setItem('ip_rol_lock', JSON.stringify(locks));
+    } catch(_){}
+  };
+  // Ficha de la empresa en el portal (nombre + logo), visible para sus accesos
+  const guardarEmpresa = async (cli, cambios={}) => {
+    const actual = empDe(cli.id) || {};
+    const emp = {...actual, id:cli.id, nombre:cli.nombre||'', ...cambios, actualizadoEn:new Date().toISOString()};
+    await DB.set('portal_empresas', emp);
+    setEmpresas(prev => (prev||[]).some(x=>x.id===emp.id) ? prev.map(x=>x.id===emp.id?emp:x) : [emp,...(prev||[])]);
+    return emp;
+  };
+
+  // Interconexión con Clientes: si el nombre del cliente cambia, se sincronizan sus accesos y su ficha
+  useEffect(()=>{
+    if(!isAdmin || !FIREBASE_OK || syncRef.current || lista.length===0 || clientes.length===0) return;
+    syncRef.current = true;
+    const pend = lista.filter(u=>{ const c=cliDe(u.clienteId); return c && c.nombre && u.clienteNombre!==c.nombre; });
+    pend.forEach(u=>{ const c=cliDe(u.clienteId);
+      persistirPerfil({...u, clienteNombre:c.nombre, _modPor:user?.id||'anon', _modEn:new Date().toISOString()}).catch(()=>{});
+      guardarEmpresa(c).catch(()=>{});
+    });
+    if(pend.length) toast(`${pend.length} acceso${pend.length!==1?'s':''} sincronizado${pend.length!==1?'s':''} con el módulo Clientes`,'info');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[lista.length, clientes.length, isAdmin]);
+
+  const guardar = async () => {
+    if(!isAdmin) return toast('Solo el administrador gestiona accesos de clientes','error');
+    if(!FIREBASE_OK) return toast('Se requiere conexión con el servidor','error');
+    const cli = cliDe(form.clienteId);
+    if(!cli) return toast('Seleccione el cliente','error');
+    if(!form.nombres.trim()) return toast('Escriba el nombre del contacto','error');
+    if(!form.apellidos.trim()) return toast('Escriba el apellido del contacto','error');
+    const email = form.email.trim().toLowerCase();
+    if(!form.id && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast('El correo electrónico no es válido','error');
+    if(!form.id && lista.some(u=>(u.email||'').toLowerCase()===email)) return toast('Ese correo ya tiene un acceso al portal','error');
+    if(!form.id && !pwdOk(form.password)) return toast('Contraseña: mín. 8 caracteres, 1 mayúscula y 1 número','error');
+    if(!form.id && form.password!==form.confirma) return toast('Las contraseñas no coinciden','error');
+    setSaving(true);
+    try {
+      const now = new Date().toISOString();
+      const nombres = form.nombres.trim(), apellidos = form.apellidos.trim();
+      const datos = {nombre:(nombres+' '+apellidos).trim(), nombres, apellidos, cargo:form.cargo.trim(),
+        clienteId:cli.id, clienteNombre:cli.nombre, verSoportes:!!form.verSoportes, rol:'cliente'};
+      const emp = empDe(cli.id);
+      if(form.id){
+        const actual = lista.find(x=>x.id===form.id) || {};
+        await persistirPerfil({...actual, ...datos, clienteLogo:emp?.logo||actual.clienteLogo||'', _modPor:user?.id||'anon', _modEn:now});
+        toast('Acceso actualizado','success');
+      } else {
+        // Mismo mecanismo que Configuración › Usuarios: credencial + perfil completo, activo de inmediato
+        const cred = await _authSecundario.createUserWithEmailAndPassword(email, form.password);
+        await _authSecundario.signOut();
+        await persistirPerfil({id:cred.user.uid, email, ...datos, activo:true, permisos:{}, clienteLogo:emp?.logo||'',
+          creadoEn:now, _modPor:user?.id||'anon', _modEn:now});
+        if(!emp) guardarEmpresa(cli).catch(()=>{});
+        setCreado({cliente:cli.nombre, nombre:datos.nombre, email, password:form.password});
+        toast('Acceso creado y activo','success');
+      }
+      setForm(VACIO); setVerPwd(false);
+    } catch(e) {
+      const msgs = {'auth/email-already-in-use':'Ese correo ya tiene una cuenta','auth/invalid-email':'Correo inválido',
+        'auth/network-request-failed':'Sin conexión con el servidor','permission-denied':'Sin permisos en el servidor'};
+      toast(msgs[e.code] || ('Error: '+e.message),'error');
+    } finally { setSaving(false); }
+  };
+
+  const cambiarEstado = async (u, activo) => {
+    try {
+      await persistirPerfil({...u, activo, _modPor:user?.id||'anon', _modEn:new Date().toISOString()});
+      toast(activo?'Acceso reactivado':'Acceso desactivado. El cliente ya no podrá ingresar.','success');
+    } catch(e){ toast('Error: '+e.message,'error'); }
+  };
+
+  const cambiarPwd = async () => {
+    if(!pwd) return;
+    if(pwd.nueva!==pwd.confirma) return toast('Las contraseñas no coinciden','error');
+    if(!pwdOk(pwd.nueva)) return toast('Contraseña: mín. 8 caracteres, 1 mayúscula y 1 número','error');
+    try {
+      const base  = String(window._fbCfg?.backendUrl||'').replace(/\/$/,'');
+      const token = localStorage.getItem('ip_mongo_token');
+      // Se envía también el perfil completo para que el servidor no lo reemplace por uno vacío
+      const resp = await fetch(base+'/api/auth/users/'+encodeURIComponent(pwd.u.id), {
+        method:'PUT', headers:{'Content-Type':'application/json', Authorization:'Bearer '+token},
+        body: JSON.stringify({password:pwd.nueva, perfil:pwd.u}),
+      });
+      if(!resp.ok) throw new Error('El servidor respondió '+resp.status);
+      setPwd(null);
+      toast('Contraseña actualizada para '+pwd.u.email,'success');
+    } catch(e){ toast('No se pudo cambiar la contraseña: '+e.message,'error'); }
+  };
+
+  const eliminar = async (u) => {
+    try {
+      await _db.collection('usuarios').doc(u.id).delete();
+      setLista(prev=>prev.filter(x=>x.id!==u.id));
+      try { localStorage.setItem('ip_usuarios', JSON.stringify(JSON.parse(localStorage.getItem('ip_usuarios')||'[]').filter(x=>x.id!==u.id))); } catch(_){}
+      setDel(null);
+      toast('Acceso eliminado','success');
+    } catch(e){ toast('Error al eliminar: '+e.message,'error'); }
+  };
+
+  // ── Logo de la empresa en el portal ──
+  const aplicarLogo = async (cli, logo) => {
+    setLogoBusy(true);
+    try {
+      await guardarEmpresa(cli, {logo});
+      const now = new Date().toISOString();
+      // Copia en cada acceso de la empresa: el portal lo muestra aunque el servidor no comparta la ficha
+      await Promise.all(lista.filter(u=>u.clienteId===cli.id).map(u=>persistirPerfil({...u, clienteLogo:logo, _modPor:user?.id||'anon', _modEn:now}).catch(()=>{})));
+      toast(logo?'Logo actualizado en el portal de '+cli.nombre:'Logo retirado del portal','success');
+    } catch(e){ toast('No se pudo guardar el logo: '+e.message,'error'); }
+    finally { setLogoBusy(false); }
+  };
+  const cargarLogo = async (cli, file) => {
+    if(!file) return;
+    if(!/^image\/(png|jpe?g|svg\+xml|webp)$/.test(file.type)) return toast('Use una imagen PNG, JPG, SVG o WEBP','error');
+    if(file.size > 3*1024*1024) return toast('La imagen no debe superar 3 MB','error');
+    try {
+      const raw = await new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=e=>res(e.target.result); fr.onerror=rej; fr.readAsDataURL(file); });
+      await aplicarLogo(cli, await portalProcesarLogo(raw));
+    } catch(e){ toast('No se pudo procesar la imagen: '+e.message,'error'); }
+  };
+  const logoModuloClientes = cli => { try { const l = LogoStore.resolve(cli) || (cli?.logo && String(cli.logo).startsWith('data:image') ? cli.logo : ''); return l||''; } catch(_){ return ''; } };
+
+  const activos = lista.filter(u=>u.activo!==false).length;
+  const lbl = {fontSize:11,color:'#64748b',fontWeight:600,display:'block',marginBottom:6};
+  const cliForm = cliDe(form.clienteId);
+  const empForm = cliForm ? empDe(cliForm.id) : null;
+  const logoCli = cliForm ? logoModuloClientes(cliForm) : '';
+  const copiar = txt => { try { navigator.clipboard.writeText(txt); toast('Copiado al portapapeles','success'); } catch(_){ toast('No se pudo copiar','error'); } };
+
+  return <div style={{display:'flex',gap:14,flexWrap:'wrap',alignItems:'flex-start'}}>
+    <div className="card" style={{flex:'999 1 600px',minWidth:0,overflow:'hidden'}}>
+      <div style={{padding:'16px 18px',borderBottom:'1px solid #243447',display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+        <div>
+          <h3 className="sy" style={{margin:0,color:'#fff',fontSize:15,fontWeight:700}}>Accesos de clientes</h3>
+          <p style={{margin:'3px 0 0',fontSize:12,color:'#64748b'}}>{activos} activo{activos!==1?'s':''}{lista.length-activos>0?` · ${lista.length-activos} desactivado${lista.length-activos!==1?'s':''}`:''}. Cada acceso ve solo la información de su empresa.</p>
+        </div>
+        {form.id&&<button className="btn btn-p btn-sm" onClick={()=>setForm(VACIO)}><Ico n="plus" s={13}/>Nuevo acceso</button>}
+      </div>
+
+      {creado&&<div className="fade" style={{margin:14,padding:'14px 16px',borderRadius:10,background:'rgba(26,107,58,.18)',border:'1px solid rgba(74,222,128,.3)'}}>
+        <div style={{display:'flex',justifyContent:'space-between',gap:10,alignItems:'flex-start'}}>
+          <div>
+            <p style={{margin:0,color:'#4ade80',fontWeight:700,fontSize:13,display:'flex',alignItems:'center',gap:6}}><Ico n="check" s={14}/>Acceso creado y activo · {creado.cliente}</p>
+            <p style={{margin:'4px 0 10px',fontSize:12,color:'#94a3b8'}}>Entregue estas credenciales a {creado.nombre}. Ingresa en la pantalla de inicio eligiendo “Portal de clientes”.</p>
+          </div>
+          <button aria-label="Cerrar" onClick={()=>setCreado(null)} style={{background:'none',border:'none',color:'#64748b',cursor:'pointer'}}><Ico n="close" s={14}/></button>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:8}}>
+          {[{l:'Usuario',v:creado.email},{l:'Contraseña',v:creado.password}].map(x=><div key={x.l} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',borderRadius:8,background:'#0f1923',border:'1px solid #243447'}}>
+            <span style={{fontSize:10,color:'#64748b',textTransform:'uppercase',width:70,flexShrink:0}}>{x.l}</span>
+            <code style={{flex:1,minWidth:0,color:'#fff',fontSize:13,overflow:'hidden',textOverflow:'ellipsis'}}>{x.v}</code>
+            <button className="btn btn-ghost btn-sm p-1.5" title="Copiar" aria-label={'Copiar '+x.l} onClick={()=>copiar(x.v)}><Ico n="copy" s={12}/></button>
+          </div>)}
+        </div>
+        <button className="btn btn-ghost btn-sm" style={{marginTop:10}} onClick={()=>copiar(`Portal de clientes · ${creado.cliente}\nUsuario: ${creado.email}\nContraseña: ${creado.password}`)}><Ico n="copy" s={12}/>Copiar todo</button>
+      </div>}
+
+      <div style={{overflowX:'auto'}}>
+        <table className="tbl">
+          <thead><tr>{['Cliente','Contacto','Usuario','Estado','Creado','Acciones'].map(h=><th key={h}>{h}</th>)}</tr></thead>
+          <tbody>
+            {lista.length===0&&<tr><td colSpan={6} style={{textAlign:'center',padding:32,color:'#475569'}}>Aún no hay accesos. Cree el primero con el formulario.</td></tr>}
+            {lista.map(u=>{
+              const inactivo = u.activo===false;
+              const c = cliDe(u.clienteId); const lg = empDe(u.clienteId)?.logo || u.clienteLogo;
+              return <tr key={u.id} style={inactivo?{opacity:.6}:form.id===u.id?{background:'rgba(201,168,76,.06)'}:undefined}>
+                <td><div style={{display:'flex',alignItems:'center',gap:10}}>
+                  <div style={{width:30,height:30,borderRadius:7,background:lg?'#fff':'linear-gradient(135deg,#1E3A5F,#2a5298)',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',flexShrink:0,fontSize:12,fontWeight:700,color:'#fff'}}>
+                    {lg?<img src={lg} alt="" style={{width:'100%',height:'100%',objectFit:'contain'}}/>:(c?.nombre||u.clienteNombre||'?').charAt(0)}</div>
+                  <div style={{minWidth:0}}><p style={{margin:0,color:'#fff',fontWeight:600}}>{c?.nombre||u.clienteNombre||'—'}</p>
+                    {!c&&<p style={{margin:0,fontSize:10,color:'#f87171'}}>Cliente eliminado del módulo Clientes</p>}</div>
+                </div></td>
+                <td><p style={{margin:0,color:'#cbd5e1',fontSize:12}}>{u.nombre}</p><p style={{margin:0,fontSize:11,color:'#64748b'}}>{u.cargo||'Sin cargo'}</p></td>
+                <td style={{fontSize:12,color:'#cbd5e1'}}>{u.email}</td>
+                <td><SBadge s={inactivo?'inactivo':'activo'}/></td>
+                <td style={{fontSize:11,color:'#64748b'}}>{u.creadoEn?fmt.date(String(u.creadoEn).split('T')[0]):'—'}</td>
+                <td><div style={{display:'flex',gap:4}}>
+                  <button className="btn btn-ghost btn-sm p-1.5" title="Editar" aria-label="Editar acceso" onClick={()=>{ const n=partirNombre(u); setCreado(null); setForm({id:u.id,clienteId:u.clienteId||'',nombres:n.nombres,apellidos:n.apellidos,cargo:u.cargo||'',email:u.email||'',password:'',confirma:'',verSoportes:u.verSoportes!==false}); }}><Ico n="edit" s={13}/></button>
+                  <button className="btn btn-ghost btn-sm p-1.5" title="Cambiar contraseña" aria-label="Cambiar contraseña" style={{color:'#60a5fa'}} onClick={()=>setPwd({u,nueva:'',confirma:''})}><Ico n="lock" s={13}/></button>
+                  {inactivo
+                    ? <button className="btn btn-sm p-1.5" title="Reactivar" aria-label="Reactivar acceso" style={{background:'rgba(74,222,128,.12)',color:'#4ade80',border:'1px solid rgba(74,222,128,.25)'}} onClick={()=>cambiarEstado(u,true)}><Ico n="check" s={13}/></button>
+                    : <button className="btn btn-ghost btn-sm p-1.5" title="Desactivar" aria-label="Desactivar acceso" style={{color:'#f87171'}} onClick={()=>cambiarEstado(u,false)}><Ico n="close" s={13}/></button>}
+                  <button className="btn btn-sm p-1.5" title="Eliminar" aria-label="Eliminar acceso" style={{background:'rgba(153,27,27,.25)',color:'#f87171',border:'1px solid rgba(248,113,113,.3)'}} onClick={()=>setDel(u)}><Ico n="trash" s={13}/></button>
+                </div></td>
+              </tr>;
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div className="card-p" style={{flex:'1 1 360px',border:'1px solid rgba(201,168,76,.35)'}}>
+      <div className="gline"/>
+      <h3 className="sy" style={{margin:'0 0 14px',color:'#fff',fontSize:15,fontWeight:700}}>{form.id?'Editar acceso':'Nuevo acceso'}</h3>
+      <div style={{display:'flex',flexDirection:'column',gap:12}}>
+        <div><label style={lbl} htmlFor="acc-cli">Cliente *</label>
+          <select id="acc-cli" className="inp" value={form.clienteId} onChange={e=>{
+            const c = cliDe(e.target.value);
+            const pc = String(c?.contacto||'').trim().split(/\s+/).filter(Boolean);
+            setForm(p=>({...p, clienteId:e.target.value,
+              nombres: p.nombres || pc.slice(0, pc.length>2?2:1).join(' '),
+              apellidos: p.apellidos || pc.slice(pc.length>2?2:1).join(' '),
+              email: p.id ? p.email : (p.email || c?.email || '')}));
+          }}>
+            <option value="">Seleccione un cliente del módulo Clientes…</option>
+            {clientesOrd.map(c=><option key={c.id} value={c.id}>{c.nombre}{c.nit?' · NIT '+c.nit:''}</option>)}
+          </select>
+          {clientes.length===0&&<p style={{fontSize:10,color:'#f87171',margin:'4px 0 0'}}>No hay clientes registrados. Créelos primero en el módulo Clientes.</p>}</div>
+
+        {/* Logo de la empresa en el portal */}
+        {cliForm&&<div style={{padding:12,borderRadius:10,background:'#0f1923',border:'1px solid #243447',display:'flex',gap:12,alignItems:'center'}}>
+          <div style={{width:56,height:56,borderRadius:10,background:empForm?.logo?'#fff':'#162030',border:'1px dashed rgba(201,168,76,.35)',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',flexShrink:0}}>
+            {empForm?.logo?<img src={empForm.logo} alt={'Logo de '+cliForm.nombre} style={{width:'100%',height:'100%',objectFit:'contain'}}/>:<Ico n="photo" s={20} c="#475569"/>}
+          </div>
+          <div style={{flex:1,minWidth:0}}>
+            <p style={{margin:'0 0 6px',fontSize:11,color:'#94a3b8',fontWeight:600}}>Logo en el portal · aparece junto al saludo del Dashboard</p>
+            <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+              <label className="btn btn-ghost btn-sm" style={{cursor:logoBusy?'wait':'pointer',color:'#C9A84C',position:'relative'}}>
+                <Ico n="up" s={12}/>{empForm?.logo?'Cambiar':'Cargar logo'}
+                <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" disabled={logoBusy} style={{position:'absolute',opacity:0,width:1,height:1}}
+                  onChange={e=>{ const f=e.target.files?.[0]; e.target.value=''; cargarLogo(cliForm,f); }}/>
+              </label>
+              {logoCli&&logoCli!==empForm?.logo&&<button className="btn btn-ghost btn-sm" disabled={logoBusy} onClick={async()=>{ try{ await aplicarLogo(cliForm, await portalProcesarLogo(logoCli)); }catch(e){ toast('No se pudo usar el logo: '+e.message,'error'); } }}><Ico n="clients" s={12}/>Usar el de Clientes</button>}
+              {empForm?.logo&&<button className="btn btn-ghost btn-sm" style={{color:'#f87171'}} disabled={logoBusy} onClick={()=>aplicarLogo(cliForm,'')}><Ico n="trash" s={12}/>Quitar</button>}
+            </div>
+          </div>
+        </div>}
+
+        <div className="grid-2" style={{gap:10}}>
+          <div><label style={lbl} htmlFor="acc-nom">Nombres *</label>
+            <input id="acc-nom" className="inp" value={form.nombres} onChange={e=>setForm(p=>({...p,nombres:e.target.value}))} placeholder="Laura" autoComplete="off"/></div>
+          <div><label style={lbl} htmlFor="acc-ape">Apellidos *</label>
+            <input id="acc-ape" className="inp" value={form.apellidos} onChange={e=>setForm(p=>({...p,apellidos:e.target.value}))} placeholder="Gómez Restrepo" autoComplete="off"/></div>
+        </div>
+        <div><label style={lbl} htmlFor="acc-cargo">Cargo</label>
+          <input id="acc-cargo" className="inp" value={form.cargo} onChange={e=>setForm(p=>({...p,cargo:e.target.value}))} placeholder="Ej.: Gerente de Talento Humano"/></div>
+        <div><label style={lbl} htmlFor="acc-mail">Correo electrónico (usuario) *</label>
+          <input id="acc-mail" className="inp" type="email" value={form.email} disabled={!!form.id} onChange={e=>setForm(p=>({...p,email:e.target.value}))} placeholder="contacto@empresa.co" autoComplete="off" style={form.id?{opacity:.6}:undefined}/>
+          {form.id&&<p style={{fontSize:10,color:'#475569',margin:'4px 0 0'}}>El usuario no se puede cambiar. Para otro correo, cree un acceso nuevo.</p>}</div>
+        {!form.id&&<>
+          <div><label style={lbl} htmlFor="acc-pwd">Contraseña *</label>
+            <div style={{display:'flex',gap:6}}>
+              <input id="acc-pwd" className="inp" type={verPwd?'text':'password'} value={form.password} onChange={e=>setForm(p=>({...p,password:e.target.value}))} placeholder="Mín. 8, 1 mayúscula, 1 número" autoComplete="new-password" style={{flex:1,minWidth:0}}/>
+              <button type="button" className="btn btn-ghost btn-sm" aria-label={verPwd?'Ocultar contraseña':'Mostrar contraseña'} onClick={()=>setVerPwd(v=>!v)}><Ico n="eye" s={13}/></button>
+              <button type="button" className="btn btn-ghost btn-sm" style={{color:'#C9A84C'}} onClick={()=>{ const g=generar(); setForm(p=>({...p,password:g,confirma:g})); setVerPwd(true); }}>Generar</button>
+            </div>
+            {form.password&&<p style={{fontSize:10,margin:'4px 0 0',color:pwdOk(form.password)?'#4ade80':'#fbbf24'}}>{pwdOk(form.password)?'✓ Contraseña segura':'Debe tener mín. 8 caracteres, 1 mayúscula y 1 número'}</p>}</div>
+          <div><label style={lbl} htmlFor="acc-pwd2">Confirmar contraseña *</label>
+            <input id="acc-pwd2" className="inp" type={verPwd?'text':'password'} value={form.confirma} onChange={e=>setForm(p=>({...p,confirma:e.target.value}))} autoComplete="new-password"/>
+            {form.confirma&&form.confirma!==form.password&&<p style={{fontSize:10,margin:'4px 0 0',color:'#f87171'}}>Las contraseñas no coinciden</p>}</div>
+        </>}
+        <label style={{display:'flex',gap:10,alignItems:'center',fontSize:13,color:'#cbd5e1',cursor:'pointer'}}>
+          <input type="checkbox" checked={!!form.verSoportes} onChange={e=>setForm(p=>({...p,verSoportes:e.target.checked}))} style={{accentColor:'#C9A84C',width:16,height:16}}/>
+          Puede ver y descargar los soportes de cierre
+        </label>
+        <p style={{margin:0,fontSize:11,color:'#475569',lineHeight:1.5}}>El acceso queda activo al crearlo. El cliente ve Dashboard, Calendario y Requerimientos de su empresa; nunca ve nombres de responsables, facturación ni información de otros clientes.</p>
+        <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+          {form.id&&<button className="btn btn-ghost btn-sm" onClick={()=>setForm(VACIO)}>Cancelar</button>}
+          <button className="btn btn-g btn-sm" onClick={guardar} disabled={saving}><Ico n="check" s={13}/>{saving?'Guardando...':form.id?'Guardar cambios':'Crear acceso'}</button>
+        </div>
+      </div>
+    </div>
+
+    <Modal open={!!pwd} onClose={()=>setPwd(null)} title="Cambiar contraseña del cliente">
+      {pwd&&<div style={{display:'grid',gap:12}}>
+        <p style={{margin:0,fontSize:13,color:'#94a3b8'}}>{pwd.u.clienteNombre} · {pwd.u.email}</p>
+        <div><label style={lbl}>Nueva contraseña</label>
+          <div style={{display:'flex',gap:8}}>
+            <input className="inp" type="text" value={pwd.nueva} onChange={e=>setPwd(p=>({...p,nueva:e.target.value}))} autoComplete="new-password" style={{flex:1}}/>
+            <button type="button" className="btn btn-ghost btn-sm" style={{color:'#C9A84C'}} onClick={()=>{const g=generar(); setPwd(p=>({...p,nueva:g,confirma:g}));}}>Generar</button>
+          </div></div>
+        <div><label style={lbl}>Confirmar contraseña</label>
+          <input className="inp" type="text" value={pwd.confirma} onChange={e=>setPwd(p=>({...p,confirma:e.target.value}))} autoComplete="new-password"/></div>
+        <div style={{display:'flex',justifyContent:'flex-end',gap:10}}>
+          <button className="btn btn-ghost btn-sm" onClick={()=>setPwd(null)}>Cancelar</button>
+          <button className="btn btn-p btn-sm" onClick={cambiarPwd}><Ico n="lock" s={13}/>Cambiar contraseña</button>
+        </div>
+      </div>}
+    </Modal>
+    {del&&<Confirm msg={`¿Eliminar el acceso de ${del.email}? El cliente no podrá volver a ingresar con este usuario.`} onOk={()=>eliminar(del)} onCancel={()=>setDel(null)}/>}
+  </div>;
+};
+
+// ══════════════════════════════════════════════════════════════════════
+// PORTAL DEL CLIENTE — mismo sistema visual del panel Equipo Integra
+// (shell .page/.sidebar/.topbar, dash-premium, KPI, .tbl, .inp, .btn, .badge)
+// Solo datos de la empresa vinculada al acceso.
+// v15: filtro de tareas, indicadores clicables, periodo + archivo mensual,
+//      observaciones por tarea, solicitud de reunión/capacitación, logo.
+// ══════════════════════════════════════════════════════════════════════
+const PC_TXT = {ink:'#e8ecf1', muted:'#556b84', soft:'#94a3b8', gold:'#C9A84C', line:'rgba(36,52,71,.6)'};
+const PC_FONT = 'Century Gothic,sans-serif';
+const PC_ESTADO_TAREA = {
+  pendiente:{l:'Pendiente',tone:'gold'}, en_curso:{l:'En curso',tone:'blue'}, revision:{l:'En revisión',tone:'blue'},
+  reprogramada:{l:'Reprogramada',tone:'amber'}, completada:{l:'Cumplida',tone:'green'}, cancelada:{l:'Cancelada',tone:'gray'},
+};
+const pcEstadoTarea = (t, hoy) => {
+  if(t.estado!=='completada' && t.estado!=='cancelada' && t.fechaVen && t.fechaVen<hoy) return {l:'Vencida',tone:'red'};
+  return PC_ESTADO_TAREA[t.estado] || {l:'Pendiente',tone:'gold'};
+};
+// Clasificación única para filtros e indicadores (cada tarea cae en una sola categoría)
+const PC_CATS = [
+  {id:'en_curso',     l:'En curso',      color:'#3b82f6', ico:'tasks'},
+  {id:'pendiente',    l:'Pendientes',    color:'#f59e0b', ico:'clock'},
+  {id:'reprogramada', l:'Reprogramadas', color:'#a78bfa', ico:'cal'},
+  {id:'vencida',      l:'Vencidas',      color:'#ef4444', ico:'bell'},
+  {id:'cumplida',     l:'Cumplidas',     color:'#22c55e', ico:'check'},
+];
+const pcCatTarea = (t, hoy) => {
+  if(t.estado==='completada') return 'cumplida';
+  if(t.estado==='cancelada')  return 'cancelada';
+  if(t.fechaVen && t.fechaVen<hoy) return 'vencida';
+  if(t.estado==='reprogramada') return 'reprogramada';
+  if(t.estado==='en_curso' || t.estado==='revision') return 'en_curso';
+  return 'pendiente';
+};
+const PC_BADGE = {gold:'b-gold', blue:'b-blue', amber:'b-yellow', green:'b-green', red:'b-red', gray:'b-gray'};
+const PcChip = ({tone, children}) => <span className={clx('badge',PC_BADGE[tone]||'b-gray')} style={{whiteSpace:'nowrap'}}>{children}</span>;
+const pcEsEvento = t => t.esAlerta && (t.tipo==='Reunión'||t.tipo==='Capacitación');
+const PcSoportes = ({t}) => (Array.isArray(t.soporteCierre)&&t.soporteCierre.length>0)
+  ? <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:8}}>
+      {t.soporteCierre.filter(Boolean).map((s,i)=><a key={i} href={s.data} download={s.nombre||('soporte_'+(i+1))} className="btn btn-ghost btn-sm" style={{textDecoration:'none'}}>
+        <Ico n={s.tipo==='application/pdf'?'pdf':'down'} s={13} c="#C9A84C"/>{s.nombre||'Soporte '+(i+1)}</a>)}
+    </div>
+  : null;
+const PcTitulo = ({ico, children, extra}) => (
+  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,flexWrap:'wrap',marginBottom:16}}>
+    <h3 className="dash-section-title" style={{margin:0}}><Ico n={ico} s={15} c="#C9A84C"/>{children}</h3>{extra}
+  </div>
+);
+const PcVacio = ({children}) => <p style={{color:PC_TXT.muted,fontSize:13,textAlign:'center',padding:'24px 0',margin:0,fontFamily:PC_FONT}}>{children}</p>;
+const pcLbl = {display:'block',fontSize:11,fontWeight:600,color:PC_TXT.soft,marginBottom:6,textTransform:'uppercase',letterSpacing:'.5px'};
+const pcHoy = () => { const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+
+// Selector de periodo (archivo mensual + búsqueda histórica)
+const PcPeriodo = ({value, onChange, meses}) => (
+  <label style={{display:'inline-flex',alignItems:'center',gap:8,fontSize:11,color:'#64748b',fontWeight:600,textTransform:'uppercase',letterSpacing:'.5px'}}>
+    <Ico n="clock" s={13} c="#C9A84C"/>Periodo
+    <select className="inp" value={value} onChange={e=>onChange(e.target.value)} style={{width:'auto',minWidth:170,padding:'5px 10px',fontSize:12,textTransform:'none',letterSpacing:0}} aria-label="Periodo">
+      <option value="actual">Mes actual · {archMesLabel(archMesActual())}</option>
+      {meses.length>0&&<optgroup label="Archivo mensual">
+        {meses.map(m=><option key={m} value={m}>{archMesLabel(m)}</option>)}
+      </optgroup>}
+      <option value="todo">Todo el histórico</option>
+    </select>
+  </label>
+);
+
+// Hilo de mensajes de una solicitud (cliente ⇄ Integra)
+const PcHilo = ({req}) => {
+  const msgs = (req?.historial||[]).filter(h=>h.texto && h.estado!=='recibido');
+  if(msgs.length===0) return null;
+  return <div style={{display:'flex',flexDirection:'column',gap:8}}>
+    {msgs.map((h,i)=>{ const yo = h.estado==='respuesta_cliente' || h.estado==='mensaje_cliente';
+      return <div key={i} className={yo?'cbme':'cboth'} style={{maxWidth:'92%',alignSelf:yo?'flex-end':'flex-start'}}>
+        <span style={{fontSize:10.5,color:yo?'#bfdbfe':'#C9A84C',fontWeight:600}}>{yo?'Usted':'Integra Consultores'} · {reqFechaHora(h.ts)}</span>
+        <p style={{margin:'3px 0 0',fontSize:13,color:'#e2e8f0',lineHeight:1.5,whiteSpace:'pre-wrap'}}>{h.texto}</p>
+      </div>; })}
+  </div>;
+};
+
+// Formulario de nuevo requerimiento (cliente)
+const PcNuevoReq = ({user, reqsAll, prefill, onClose, onCreado, toast}) => {
+  const hoy = pcHoy();
+  const [f,setF] = useState(()=>({titulo:prefill?.titulo||'', area:prefill?.area||'', prioridad:'media', fechaRequerida:'', desc:prefill?.desc||'', adjuntos:[]}));
+  const [enviando,setEnviando] = useState(false);
+  const enviar = () => {
+    if(!f.titulo.trim()) return toast('Escriba el asunto del requerimiento','error');
+    if(!f.area) return toast('Seleccione el área','error');
+    if(!f.desc.trim()) return toast('Describa lo que necesita','error');
+    setEnviando(true);
+    const now = new Date().toISOString();
+    const r = {
+      id: uid(), tipo:'requerimiento', numero: ReqSvc.nextNumero(reqsAll,'REQ'),
+      clienteId: user.clienteId, clienteNombre: user.clienteNombre||'',
+      solicitanteId: user.id, solicitanteNombre: user.nombre||'', solicitanteEmail: user.email||'',
+      titulo: f.titulo.trim(), areaEspecialidad: f.area, prioridad: f.prioridad,
+      fechaRequerida: f.fechaRequerida, desc: f.desc.trim(), adjuntos: f.adjuntos,
+      estado: 'recibido', creadoEn: now, recibidoEn: now,
+      historial: [{estado:'recibido', texto:'Requerimiento enviado desde el portal.', autor:user.nombre||'Cliente', ts:now}],
+    };
+    DB.set('requerimientos', r).catch(()=>{});
+    onCreado(r);
+    toast(r.numero+' enviado. Nuestro equipo ya fue notificado.','success');
+  };
+  return <div className="overlay" onMouseDown={e=>e.target===e.currentTarget&&onClose()}>
+    <form role="dialog" aria-modal="true" aria-labelledby="pc-nuevo-titulo" className="modal modal-lg fade" onSubmit={e=>{e.preventDefault(); enviar();}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12,marginBottom:6}}>
+        <div>
+          <h3 id="pc-nuevo-titulo" className="sy" style={{margin:0,fontSize:16,fontWeight:700,color:'#fff'}}>Nuevo requerimiento</h3>
+          <p style={{margin:'4px 0 0',fontSize:12,color:PC_TXT.soft}}>Llega de inmediato al equipo de Integra Consultores.</p>
+        </div>
+        <button type="button" aria-label="Cerrar" onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',color:'#94a3b8',padding:4}}><Ico n="close" s={18}/></button>
+      </div>
+      <div className="gline" style={{marginTop:12}}/>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:14}}>
+        <div style={{gridColumn:'1 / -1'}}><label style={pcLbl} htmlFor="pc-asunto">Asunto</label>
+          <input id="pc-asunto" className="inp" value={f.titulo} onChange={e=>setF(p=>({...p,titulo:e.target.value}))} maxLength={140} placeholder="Ej.: Inducción SST para trabajadores nuevos"/>
+        </div>
+        <div><label style={pcLbl} htmlFor="pc-area">Área</label>
+          <select id="pc-area" className="inp" value={f.area} onChange={e=>setF(p=>({...p,area:e.target.value}))}>
+            <option value="">Seleccione…</option>
+            {REQ_AREAS.map(a=><option key={a.id} value={a.id}>{a.label}</option>)}
+          </select>
+        </div>
+        <div><label style={pcLbl} htmlFor="pc-fecha">Fecha en que lo necesita</label>
+          <input id="pc-fecha" className="inp" type="date" min={hoy} value={f.fechaRequerida} onChange={e=>setF(p=>({...p,fechaRequerida:e.target.value}))}/>
+        </div>
+        <fieldset style={{gridColumn:'1 / -1',border:'none',padding:0,margin:0}}>
+          <legend style={{...pcLbl,padding:0}}>Prioridad</legend>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            {REQ_PRIO.map(p=>{ const sel=f.prioridad===p.id;
+              return <label key={p.id} className={clx('si',sel&&'active')} style={{width:'auto',padding:'8px 16px',position:'relative',border:sel?undefined:'1px solid #243447'}}>
+                <input type="radio" name="pc-prio" value={p.id} checked={sel} onChange={()=>setF(x=>({...x,prioridad:p.id}))} style={{position:'absolute',opacity:0,width:1,height:1}}/>
+                {p.label}</label>; })}
+          </div>
+        </fieldset>
+        <div style={{gridColumn:'1 / -1'}}><label style={pcLbl} htmlFor="pc-desc">Descripción</label>
+          <textarea id="pc-desc" className="inp" rows={4} value={f.desc} onChange={e=>setF(p=>({...p,desc:e.target.value}))} maxLength={1500} style={{lineHeight:1.5}} placeholder="Cuéntenos qué necesita, para cuándo y cualquier detalle útil."/>
+        </div>
+        <div style={{gridColumn:'1 / -1',display:'flex',flexDirection:'column',gap:8}}>
+          {f.adjuntos.map((a,i)=><div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:'#0f1923',border:'1px solid #243447',borderRadius:8,fontSize:13,color:'#e2e8f0'}}>
+            <Ico n={a.tipo==='application/pdf'?'pdf':'photo'} s={16} c="#C9A84C"/>
+            <span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.nombre}</span>
+            <span style={{fontSize:11,color:'#64748b'}}>{a.kb} KB</span>
+            <button type="button" aria-label={'Quitar '+a.nombre} onClick={()=>setF(p=>({...p,adjuntos:p.adjuntos.filter((_,j)=>j!==i)}))} style={{border:'none',background:'none',cursor:'pointer',color:'#f87171',padding:4}}><Ico n="close" s={14}/></button>
+          </div>)}
+          {f.adjuntos.length<REQ_MAX_ADJ&&<label style={{border:'1px dashed rgba(201,168,76,.35)',borderRadius:10,padding:14,display:'flex',alignItems:'center',gap:12,fontSize:13,color:PC_TXT.soft,cursor:'pointer',background:'rgba(201,168,76,.03)',position:'relative'}}>
+            <input type="file" multiple accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" style={{position:'absolute',opacity:0,width:1,height:1}}
+              onChange={async e=>{ const fl=e.target.files; e.target.value=''; const nuevos=await ReqSvc.leerArchivos(fl,f.adjuntos,toast); setF(p=>({...p,adjuntos:nuevos})); }}/>
+            <Ico n="up" s={20} c="#C9A84C"/>
+            <span><b style={{color:'#e2e8f0'}}>Adjuntar soportes</b> · JPG, PNG o PDF, hasta {REQ_MAX_ADJ} archivos de 1,5 MB</span>
+          </label>}
+        </div>
+      </div>
+      <div style={{display:'flex',justifyContent:'flex-end',gap:10,marginTop:20,paddingTop:16,borderTop:'1px solid #243447'}}>
+        <button type="button" onClick={onClose} className="btn btn-ghost">Cancelar</button>
+        <button type="submit" disabled={enviando} className="btn btn-p"><Ico n="send" s={14}/>{enviando?'Enviando…':'Enviar requerimiento'}</button>
+      </div>
+    </form>
+  </div>;
+};
+
+// Solicitud de reunión / capacitación (cliente) → queda "Pendiente" hasta que el consultor la agenda
+const PcSolicitudAgenda = ({user, reqsAll, prefill, onClose, onCreado, toast}) => {
+  const hoy = pcHoy();
+  const [f,setF] = useState(()=>({subtipo:prefill?.subtipo==='capacitacion'?'capacitacion':'reunion', tema:'', fecha:prefill?.fecha&&prefill.fecha>=hoy?prefill.fecha:'', hora:'', modalidad:'presencial', asistentes:'', area:'', desc:''}));
+  const [enviando,setEnviando] = useState(false);
+  const up = k => e => setF(p=>({...p,[k]:e.target.value}));
+  const esReu = f.subtipo==='reunion';
+  const enviar = () => {
+    if(!f.tema.trim()) return toast('Escriba el tema de la '+(esReu?'reunión':'capacitación'),'error');
+    if(!f.fecha) return toast('Seleccione la fecha que propone','error');
+    setEnviando(true);
+    const now = new Date().toISOString();
+    const r = {
+      id: uid(), tipo:'agenda', subtipo:f.subtipo, numero: ReqSvc.nextNumero(reqsAll,'AGD'),
+      clienteId: user.clienteId, clienteNombre: user.clienteNombre||'',
+      solicitanteId: user.id, solicitanteNombre: user.nombre||'', solicitanteEmail: user.email||'',
+      titulo: 'Solicitud de '+(esReu?'reunión':'capacitación')+': '+f.tema.trim(),
+      areaEspecialidad: f.area, prioridad:'media', fechaRequerida: f.fecha,
+      fechaPropuesta: f.fecha, horaPropuesta: f.hora, modalidad: f.modalidad, asistentes: f.asistentes,
+      desc: f.desc.trim(), adjuntos: [], estado:'recibido', creadoEn: now, recibidoEn: now,
+      historial: [{estado:'recibido', texto:'Solicitud de '+(esReu?'reunión':'capacitación')+' enviada desde el portal.', autor:user.nombre||'Cliente', ts:now}],
+    };
+    DB.set('requerimientos', r).catch(()=>{});
+    onCreado(r);
+    toast(r.numero+' enviada. Queda pendiente hasta que su consultor la agende.','success');
+  };
+  return <div className="overlay" onMouseDown={e=>e.target===e.currentTarget&&onClose()}>
+    <form role="dialog" aria-modal="true" aria-labelledby="pc-agd-titulo" className="modal modal-lg fade" onSubmit={e=>{e.preventDefault(); enviar();}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12,marginBottom:6}}>
+        <div>
+          <h3 id="pc-agd-titulo" className="sy" style={{margin:0,fontSize:16,fontWeight:700,color:'#fff'}}>Solicitar {esReu?'reunión':'capacitación'}</h3>
+          <p style={{margin:'4px 0 0',fontSize:12,color:PC_TXT.soft}}>Su consultor confirma la fecha. Verá el estado “Pendiente” y luego “Agendado”.</p>
+        </div>
+        <button type="button" aria-label="Cerrar" onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',color:'#94a3b8',padding:4}}><Ico n="close" s={18}/></button>
+      </div>
+      <div className="gline" style={{marginTop:12}}/>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:14}}>
+        <fieldset style={{gridColumn:'1 / -1',border:'none',padding:0,margin:0}}>
+          <legend style={{...pcLbl,padding:0}}>Tipo</legend>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            {[{id:'reunion',l:'Reunión',ico:'team'},{id:'capacitacion',l:'Capacitación',ico:'user'}].map(o=>{ const sel=f.subtipo===o.id;
+              return <label key={o.id} className={clx('si',sel&&'active')} style={{width:'auto',padding:'8px 16px',position:'relative',border:sel?undefined:'1px solid #243447'}}>
+                <input type="radio" name="pc-agd-tipo" checked={sel} onChange={()=>setF(p=>({...p,subtipo:o.id}))} style={{position:'absolute',opacity:0,width:1,height:1}}/>
+                <Ico n={o.ico} s={14}/>{o.l}</label>; })}
+          </div>
+        </fieldset>
+        <div style={{gridColumn:'1 / -1'}}><label style={pcLbl} htmlFor="pc-agd-tema">Tema *</label>
+          <input id="pc-agd-tema" className="inp" value={f.tema} onChange={up('tema')} maxLength={120} placeholder={esReu?'Ej.: Revisión de avances del trimestre':'Ej.: Capacitación en trabajo en alturas'}/></div>
+        <div><label style={pcLbl} htmlFor="pc-agd-fecha">Fecha propuesta *</label>
+          <input id="pc-agd-fecha" className="inp" type="date" min={hoy} value={f.fecha} onChange={up('fecha')}/></div>
+        <div><label style={pcLbl} htmlFor="pc-agd-hora">Hora propuesta</label>
+          <input id="pc-agd-hora" className="inp" type="time" value={f.hora} onChange={up('hora')}/></div>
+        <div><label style={pcLbl} htmlFor="pc-agd-mod">Modalidad</label>
+          <select id="pc-agd-mod" className="inp" value={f.modalidad} onChange={up('modalidad')}>
+            <option value="presencial">Presencial</option><option value="virtual">Virtual</option><option value="hibrida">Híbrida</option>
+          </select></div>
+        <div><label style={pcLbl} htmlFor="pc-agd-area">Área</label>
+          <select id="pc-agd-area" className="inp" value={f.area} onChange={up('area')}>
+            <option value="">Sin especificar</option>
+            {REQ_AREAS.map(a=><option key={a.id} value={a.id}>{a.label}</option>)}
+          </select></div>
+        {!esReu&&<div><label style={pcLbl} htmlFor="pc-agd-asis">N.° de asistentes</label>
+          <input id="pc-agd-asis" className="inp" type="number" min="1" value={f.asistentes} onChange={up('asistentes')} placeholder="12"/></div>}
+        <div style={{gridColumn:'1 / -1'}}><label style={pcLbl} htmlFor="pc-agd-desc">Detalles</label>
+          <textarea id="pc-agd-desc" className="inp" rows={3} value={f.desc} onChange={up('desc')} maxLength={1200} placeholder="Temas a tratar, participantes, lugar sugerido…"/></div>
+      </div>
+      <div style={{display:'flex',justifyContent:'flex-end',gap:10,marginTop:20,paddingTop:16,borderTop:'1px solid #243447'}}>
+        <button type="button" onClick={onClose} className="btn btn-ghost">Cancelar</button>
+        <button type="submit" disabled={enviando} className="btn btn-p"><Ico n="send" s={14}/>{enviando?'Enviando…':'Enviar solicitud'}</button>
+      </div>
+    </form>
+  </div>;
+};
+
+// Ficha de una tarea + Observación (claridad, trazabilidad o avances)
+const PcTareaModal = ({tarea, user, reqsAll, onClose, onEnviado, verSoportes, toast}) => {
+  const hoy = pcHoy();
+  const [texto,setTexto] = useState('');
+  const [enviando,setEnviando] = useState(false);
+  const refTxt = useRef(null);
+  const hilo = useMemo(()=>reqsAll.find(r=>reqTipo(r)==='observacion' && r.tareaObservadaId===tarea.id && r.clienteId===user.clienteId) || null,[reqsAll,tarea.id,user.clienteId]);
+  useEffect(()=>{ const t=setTimeout(()=>refTxt.current?.focus(),120); return ()=>clearTimeout(t); },[]);
+  const e = pcEstadoTarea(tarea, hoy);
+  const enviar = () => {
+    const tx = texto.trim();
+    if(!tx) return toast('Escriba su observación','error');
+    setEnviando(true);
+    const r = ReqSvc.observar(reqsAll, user, tarea, tx);
+    DB.set('requerimientos', r).catch(()=>{});
+    onEnviado(r); setTexto(''); setEnviando(false);
+    toast((hilo?'Mensaje agregado a ':'Observación enviada · ')+r.numero+'. Integra Consultores ya fue notificado.','success');
+  };
+  const dato = (l,v) => <div><p style={{margin:'0 0 3px',fontSize:10,color:'#64748b',textTransform:'uppercase',letterSpacing:'.4px'}}>{l}</p><p style={{margin:0,fontSize:13,color:'#e2e8f0'}}>{v}</p></div>;
+  return <div className="overlay" onMouseDown={ev=>ev.target===ev.currentTarget&&onClose()}>
+    <div role="dialog" aria-modal="true" aria-labelledby="pc-tarea-titulo" className="modal modal-lg fade">
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
+        <div style={{minWidth:0}}>
+          <span style={{fontSize:11,color:'#C9A84C',fontWeight:600}}>{reqAreaLabel(tarea.areaEspecialidad)}</span>
+          <h3 id="pc-tarea-titulo" className="sy" style={{margin:'2px 0 0',fontSize:16,fontWeight:700,color:'#fff'}}>{tarea.titulo}</h3>
+        </div>
+        <button type="button" aria-label="Cerrar" onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',color:'#94a3b8',padding:4}}><Ico n="close" s={18}/></button>
+      </div>
+      <div className="gline" style={{marginTop:12}}/>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:12,marginBottom:16}}>
+        <div><p style={{margin:'0 0 3px',fontSize:10,color:'#64748b',textTransform:'uppercase',letterSpacing:'.4px'}}>Estado</p><PcChip tone={e.tone}>{e.l}</PcChip></div>
+        {dato('Asignada', tarea.fechaAsignada?fmt.date(tarea.fechaAsignada):'—')}
+        {dato('Vence', tarea.fechaVen?fmt.date(tarea.fechaVen):'—')}
+        {tarea.estado==='completada'&&dato('Cumplida', tarea.fechaCumplimiento?fmt.date(tarea.fechaCumplimiento):'Sí')}
+      </div>
+      {tarea.estado==='completada'&&(tarea.reporteInforme||verSoportes)&&<div style={{padding:12,borderRadius:10,background:'rgba(26,107,58,.18)',border:'1px solid rgba(74,222,128,.25)',marginBottom:16}}>
+        {tarea.reporteInforme&&<p style={{margin:0,fontSize:13,color:'#cbd5e1',lineHeight:1.5}}>{tarea.reporteInforme}</p>}
+        {verSoportes&&<PcSoportes t={tarea}/>}
+      </div>}
+
+      <h4 style={{margin:'0 0 10px',fontSize:13,color:'#fff',display:'flex',alignItems:'center',gap:8,fontFamily:PC_FONT}}>
+        <Ico n="chat" s={14} c="#C9A84C"/>Observaciones {hilo&&<span style={{fontSize:11,color:'#64748b',fontWeight:500}}>· {hilo.numero}</span>}
+        {hilo&&<span style={{marginLeft:'auto'}}><PcChip tone={reqEstadoCliente(hilo).tone}>{reqEstadoCliente(hilo).label}</PcChip></span>}
+      </h4>
+      {hilo ? <div style={{maxHeight:260,overflowY:'auto',marginBottom:12,paddingRight:4}}><PcHilo req={hilo}/></div>
+        : <p style={{margin:'0 0 12px',fontSize:12,color:PC_TXT.muted,lineHeight:1.5}}>¿Necesita claridad sobre el avance, la trazabilidad o los próximos pasos de esta tarea? Escríbanos; la respuesta llegará aquí y en Requerimientos.</p>}
+      <label style={pcLbl} htmlFor="pc-obs">{hilo?'Escribir otro mensaje':'Su observación'}</label>
+      <textarea id="pc-obs" ref={refTxt} className="inp" rows={3} maxLength={1200} value={texto} onChange={ev=>setTexto(ev.target.value)} placeholder="Ej.: ¿En qué etapa va esta actividad y cuándo esperan terminarla?"/>
+      <div style={{display:'flex',justifyContent:'flex-end',gap:10,marginTop:14}}>
+        <button type="button" onClick={onClose} className="btn btn-ghost">Cerrar</button>
+        <button type="button" disabled={enviando} onClick={enviar} className="btn btn-p"><Ico n="send" s={14}/>Enviar observación</button>
+      </div>
+    </div>
+  </div>;
+};
+
+// Indicador clicable: lleva a la información detallada del indicador
+const KpiLink = ({onGo, label, children}) => <div className="pc-kpi-link" role="button" tabIndex={0} aria-label={label} onClick={onGo}
+  onKeyDown={e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); onGo(); } }}>{children}</div>;
+
+const PcDashboard = ({user, logo, tareas, eventos, reqs, onNav, onNuevo, onVerTarea, verSoportes}) => {
+  const hoy = pcHoy();
+  const [periodo,setPeriodo] = useState('actual');
+  const [filtro,setFiltro]   = useState('todas');
+  const [q,setQ]             = useState('');
+  const [todas,setTodas]     = useState(false);
+  const refTareas = useRef(null);
+
+  const meses = useMemo(()=>archMesesDisponibles(tareas.map(archMesTarea)),[tareas]);
+  const tareasP = useMemo(()=>tareas.filter(t=>archEnPeriodo(archMesTarea(t), periodo)),[tareas,periodo]);
+  const archivadas = useMemo(()=>periodo==='actual' ? tareas.filter(t=>{ const m=archMesTarea(t); return m && m<archMesActual(); }).length : 0,[tareas,periodo]);
+  const conteo = useMemo(()=>{ const c={todas:0}; PC_CATS.forEach(x=>c[x.id]=0);
+    tareasP.forEach(t=>{ const k=pcCatTarea(t,hoy); if(c[k]!==undefined) c[k]++; c.todas++; }); return c; },[tareasP,hoy]);
+  const validas = tareasP.filter(t=>t.estado!=='cancelada').length;
+  const pct = validas ? Math.round(conteo.cumplida/validas*100) : 0;
+  const en7 = new Date(Date.now()+7*86400000).toISOString().split('T')[0];
+  const vencenSemana = tareasP.filter(t=>!['cumplida','cancelada','vencida'].includes(pcCatTarea(t,hoy)) && t.fechaVen && t.fechaVen>=hoy && t.fechaVen<=en7).length;
+  const reqAbiertos = reqs.filter(r=>REQ_ABIERTOS.includes(reqEstado(r,tareas).key));
+  const reqInfo = reqs.filter(r=>r.estado==='info_solicitada').length;
+  const obsPorTarea = useMemo(()=>{ const m={}; reqs.filter(r=>reqTipo(r)==='observacion').forEach(r=>{ m[r.tareaObservadaId]=r; }); return m; },[reqs]);
+
+  const ORDEN = {vencida:0, en_curso:1, reprogramada:2, pendiente:3, cumplida:4, cancelada:5};
+  const listado = useMemo(()=>{
+    const s = q.trim().toLowerCase();
+    return tareasP.filter(t=>{
+      if(filtro!=='todas' && pcCatTarea(t,hoy)!==filtro) return false;
+      if(s && !((t.titulo||'')+' '+reqAreaLabel(t.areaEspecialidad)).toLowerCase().includes(s)) return false;
+      return true;
+    }).sort((a,b)=> (ORDEN[pcCatTarea(a,hoy)]-ORDEN[pcCatTarea(b,hoy)]) || String(a.fechaVen||'9999').localeCompare(String(b.fechaVen||'9999')));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[tareasP,filtro,q,hoy]);
+  const visibles = todas ? listado : listado.slice(0,10);
+  const irA = cat => { setFiltro(cat); setTodas(false); setTimeout(()=>refTareas.current?.scrollIntoView({behavior:'smooth',block:'start'}),40); };
+
+  const porArea = REQ_AREAS.map(a=>{ const ts=tareasP.filter(t=>t.areaEspecialidad===a.id&&t.estado!=='cancelada');
+    return {label:a.label, n:ts.length, pct: ts.length?Math.round(ts.filter(t=>t.estado==='completada').length/ts.length*100):0}; }).filter(a=>a.n>0);
+  const agenda = eventos.filter(e=>e.fechaVen&&e.fechaVen>=hoy).sort((a,b)=>String(a.fechaVen+(a.horaInicio||'')).localeCompare(String(b.fechaVen+(b.horaInicio||'')))).slice(0,4);
+  const recientes = tareasP.filter(t=>t.estado==='completada').sort((a,b)=>String(b.fechaCumplimiento||b.updatedAt||'').localeCompare(String(a.fechaCumplimiento||a.updatedAt||''))).slice(0,5);
+  const pendAgenda = reqs.filter(r=>reqTipo(r)==='agenda' && REQ_ABIERTOS.includes(reqEstado(r,tareas).key)).length;
+  const h = new Date().getHours();
+  const saludo = h<12?'Buenos días':h<18?'Buenas tardes':'Buenas noches';
+  const AREA_COL = ['#C9A84C','#3b82f6','#22c55e','#a78bfa','#f59e0b','#14b8a6','#f472b6'];
+  const etiquetaPeriodo = periodo==='actual' ? archMesLabel(archMesActual()) : periodo==='todo' ? 'todo el histórico' : archMesLabel(periodo);
+
+  return <div className="fade dash-premium">
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:14,marginBottom:18}}>
+      <div style={{display:'flex',alignItems:'center',gap:14,minWidth:0}}>
+        {logo&&<div style={{width:58,height:58,borderRadius:12,background:'#fff',padding:5,boxSizing:'border-box',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',
+          boxShadow:'0 0 0 1px rgba(201,168,76,.45), 0 6px 18px rgba(0,0,0,.35)'}}>
+          <img src={logo} alt={'Logo de '+(user.clienteNombre||'su empresa')} style={{maxWidth:'100%',maxHeight:'100%',objectFit:'contain'}}/></div>}
+        <div style={{minWidth:0}}>
+          <h2 style={{margin:0,fontSize:20,fontWeight:700,color:'#fff',fontFamily:PC_FONT,letterSpacing:'-.2px'}}>{saludo}, <span style={{color:'#C9A84C'}}>{(user.nombres||(user.nombre||'').split(' ')[0])||'bienvenido'}</span></h2>
+          <p style={{margin:'4px 0 0',color:PC_TXT.muted,fontSize:13,fontFamily:PC_FONT}}>Así va el trabajo de Integra Consultores para {user.clienteNombre||'su empresa'} · {etiquetaPeriodo}.</p>
+        </div>
+      </div>
+      <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
+        <PcPeriodo value={periodo} onChange={v=>{ setPeriodo(v); setFiltro('todas'); setTodas(false); }} meses={meses}/>
+        <button onClick={()=>onNuevo()} className="btn btn-g"><Ico n="plus" s={14}/>Nuevo requerimiento</button>
+      </div>
+    </div>
+
+    {reqInfo>0&&<button onClick={()=>onNav('requerimientos')} className="fade" style={{width:'100%',textAlign:'left',padding:'12px 16px',marginBottom:12,borderRadius:12,border:'1px solid rgba(251,191,36,.3)',background:'rgba(120,80,10,.22)',color:'#fbbf24',fontFamily:PC_FONT,fontSize:13,cursor:'pointer',display:'flex',gap:10,alignItems:'center'}}>
+      <span className="notif-dot" style={{background:'#f59e0b',flexShrink:0}}/><span><b>{reqInfo===1?'Un requerimiento necesita':'Hay '+reqInfo+' requerimientos que necesitan'} su respuesta.</b> Responda para que podamos tramitarlo.</span>
+    </button>}
+    {archivadas>0&&meses.length>0&&<div className="fade" style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',padding:'10px 14px',marginBottom:14,borderRadius:10,background:'rgba(30,58,95,.35)',border:'1px solid rgba(147,197,253,.18)',fontSize:12,color:'#93c5fd',fontFamily:PC_FONT}}>
+      <Ico n="backup" s={14}/><span style={{flex:1,minWidth:200}}>Archivo automático: {archivadas} tarea{archivadas!==1?'s':''} cerrada{archivadas!==1?'s':''} en meses anteriores ya no se muestra{archivadas!==1?'n':''} en el mes actual.</span>
+      <button className="btn btn-ghost btn-sm" onClick={()=>setPeriodo(meses[0])}>Ver {archMesLabel(meses[0])}</button>
+    </div>}
+    {periodo!=='actual'&&<div className="fade" style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',padding:'10px 14px',marginBottom:14,borderRadius:10,background:'rgba(201,168,76,.08)',border:'1px solid rgba(201,168,76,.3)',fontSize:12,color:'#e8c96a',fontFamily:PC_FONT}}>
+      <Ico n="search" s={14}/><span style={{flex:1,minWidth:200}}>Está consultando el histórico: {etiquetaPeriodo}.</span>
+      <button className="btn btn-ghost btn-sm" onClick={()=>setPeriodo('actual')}>Volver al mes actual</button>
+    </div>}
+
+    <div className="grid-4" style={{marginBottom:16}}>
+      <KpiLink label="Ver tareas cumplidas" onGo={()=>irA('cumplida')}><KPI label="Cumplimiento" val={pct+'%'} ico="analytics" color="gold" sub={`${conteo.cumplida} de ${validas} cumplidas · ver detalle`}/></KpiLink>
+      <KpiLink label="Ver tareas en curso" onGo={()=>irA('en_curso')}><KPI label="En curso" val={conteo.en_curso} ico="tasks" color="blue" sub={vencenSemana?`${vencenSemana} vence${vencenSemana!==1?'n':''} esta semana`:'Ver detalle'}/></KpiLink>
+      <KpiLink label="Ver tareas vencidas" onGo={()=>irA('vencida')}><KPI label="Vencidas" val={conteo.vencida} ico="bell" color="red" sub={conteo.vencida?'Requieren atención · ver detalle':'Sin tareas vencidas'}/></KpiLink>
+      <KpiLink label="Ir a requerimientos" onGo={()=>onNav('requerimientos')}><KPI label="Requerimientos abiertos" val={reqAbiertos.length} ico="flag" color="green" sub={reqAbiertos.length?'Ver seguimiento':'Sin solicitudes abiertas'}/></KpiLink>
+    </div>
+
+    <div style={{display:'flex',gap:14,flexWrap:'wrap',alignItems:'flex-start',marginBottom:14}}>
+      <div className="dash-card" style={{flex:'999 1 520px',minWidth:0}} ref={refTareas}>
+        <PcTitulo ico="tasks" extra={<span style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:'#4ade80',fontFamily:PC_FONT}}><span style={{width:7,height:7,borderRadius:'50%',background:'#4ade80'}}/>Tiempo real</span>}>Tareas · {etiquetaPeriodo}</PcTitulo>
+        <div className="fil-bar" style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center',marginBottom:12}} role="group" aria-label="Filtrar tareas por estado">
+          {[{id:'todas',l:'Todas'},...PC_CATS].map(c=><button key={c.id} className={clx('chip',filtro===c.id&&'active')} aria-pressed={filtro===c.id} onClick={()=>{ setFiltro(c.id); setTodas(false); }}>
+            {c.color&&<span style={{width:7,height:7,borderRadius:'50%',background:c.color}}/>}{c.l} ({conteo[c.id]||0})</button>)}
+          <input className="inp" style={{flex:1,minWidth:160,padding:'5px 10px',fontSize:12}} placeholder="Buscar tarea o área…" value={q} onChange={e=>setQ(e.target.value)} aria-label="Buscar tarea"/>
+        </div>
+        <div style={{overflowX:'auto'}}>
+          <table className="tbl">
+            <thead><tr>{['Tarea','Área','Estado','Vence',''].map((x,i)=><th key={i}>{x}</th>)}</tr></thead>
+            <tbody>
+              {visibles.length===0&&<tr><td colSpan={5}><PcVacio>{filtro==='todas'?'No hay tareas en este periodo.':'No hay tareas '+(PC_CATS.find(c=>c.id===filtro)?.l||'').toLowerCase()+' en este periodo ✓'}</PcVacio></td></tr>}
+              {visibles.map(t=>{ const e=pcEstadoTarea(t,hoy); const venc=e.l==='Vencida'; const obs=obsPorTarea[t.id];
+                return <tr key={t.id} style={{cursor:'pointer'}} onClick={()=>onVerTarea(t)}>
+                  <td style={{color:PC_TXT.ink,fontWeight:500,fontFamily:PC_FONT}}>{t.titulo}</td>
+                  <td style={{color:'#64748b',fontSize:12}}>{reqAreaLabel(t.areaEspecialidad)}</td>
+                  <td><PcChip tone={e.tone}>{e.l}</PcChip></td>
+                  <td style={{color:venc?'#f87171':'#94a3b8',fontWeight:venc?600:400,whiteSpace:'nowrap',fontSize:12}}>{t.fechaVen?fmt.date(t.fechaVen):'—'}</td>
+                  <td style={{textAlign:'right'}}>
+                    <button className="btn btn-ghost btn-sm" onClick={ev=>{ ev.stopPropagation(); onVerTarea(t,true); }} title="Enviar una observación sobre esta tarea"
+                      style={obs&&obs.estado==='respondida'?{borderColor:'rgba(74,222,128,.35)',color:'#4ade80'}:obs?{borderColor:'rgba(201,168,76,.35)',color:'#C9A84C'}:undefined}>
+                      <Ico n="chat" s={12}/>{obs&&obs.estado==='respondida'?'Respondida':obs?'Enviada':'Observación'}
+                    </button>
+                  </td>
+                </tr>; })}
+            </tbody>
+          </table>
+        </div>
+        {listado.length>10&&<button className="dash-ver-mas" onClick={()=>setTodas(v=>!v)}>
+          <Ico n="eye" s={13}/>{todas?'Ver menos':`Ver las ${listado.length} tareas`}</button>}
+      </div>
+
+      <div style={{flex:'1 1 300px',minWidth:0,display:'flex',flexDirection:'column',gap:14}}>
+        <div className="dash-card">
+          <PcTitulo ico="analytics">Estado de tareas</PcTitulo>
+          {PC_CATS.map(c=>{ const n=conteo[c.id]||0; const p=conteo.todas?Math.round(n/conteo.todas*100):0; const act=filtro===c.id;
+            return <button key={c.id} onClick={()=>irA(c.id)} aria-label={'Ver '+c.l.toLowerCase()} className="pc-estado-row"
+              style={{display:'block',width:'100%',textAlign:'left',background:act?'rgba(201,168,76,.06)':'transparent',border:'1px solid '+(act?'rgba(201,168,76,.3)':'transparent'),borderRadius:8,padding:'8px 8px 10px',marginBottom:4,cursor:'pointer',transition:'all .2s'}}>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:5}}>
+                <span style={{color:'#94a3b8',fontFamily:PC_FONT,display:'flex',alignItems:'center',gap:6}}><Ico n={c.ico} s={12} c={c.color}/>{c.l}</span>
+                <span style={{color:'#fff',fontWeight:600,fontFamily:PC_FONT}}>{n}</span>
+              </div>
+              <div className="dash-pbar"><div className="dash-pfill" style={{width:p+'%',background:c.color,color:c.color}}/></div>
+            </button>; })}
+        </div>
+        {porArea.length>0&&<div className="dash-card">
+          <PcTitulo ico="analytics">Avance por área</PcTitulo>
+          {porArea.map((a,i)=><div key={a.label} style={{marginBottom:14}}>
+            <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:5}}>
+              <span style={{color:'#94a3b8',fontFamily:PC_FONT}}>{a.label}</span>
+              <span style={{color:'#fff',fontWeight:600,fontFamily:PC_FONT}}>{a.pct}%</span>
+            </div>
+            <div className="dash-pbar"><div className="dash-pfill" style={{width:a.pct+'%',background:AREA_COL[i%AREA_COL.length],color:AREA_COL[i%AREA_COL.length]}}/></div>
+          </div>)}
+        </div>}
+        <div className="dash-card">
+          <PcTitulo ico="cal">Próxima agenda</PcTitulo>
+          {agenda.length===0&&<PcVacio>No hay reuniones ni capacitaciones agendadas.</PcVacio>}
+          {agenda.map(ev=>{ const d=new Date(ev.fechaVen+'T12:00:00'); const cap=ev.tipo==='Capacitación';
+            return <div key={ev.id} className="dash-task-item" style={{justifyContent:'flex-start',gap:12}}>
+              <div style={{width:44,textAlign:'center',borderRadius:8,padding:'5px 0',flexShrink:0,
+                background:cap?'rgba(20,184,166,.12)':'rgba(30,58,95,.6)',border:`1px solid ${cap?'rgba(20,184,166,.3)':'rgba(147,197,253,.25)'}`}}>
+                <div style={{fontSize:10,color:cap?'#5eead4':'#93c5fd',textTransform:'uppercase'}}>{d.toLocaleDateString('es-CO',{month:'short'}).replace('.','')}</div>
+                <div style={{fontWeight:700,fontSize:16,color:'#fff',fontFamily:PC_FONT}}>{String(d.getDate()).padStart(2,'0')}</div>
+              </div>
+              <div style={{minWidth:0,flex:1}}><p style={{margin:0,fontWeight:500,fontSize:13,color:PC_TXT.ink,fontFamily:PC_FONT,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{ev.titulo}</p>
+                <p style={{margin:'2px 0 0',fontSize:11,color:PC_TXT.muted}}>{ev.tipo}{ev.horaInicio?' · '+ev.horaInicio:''}{ev.lugar?' · '+ev.lugar:ev.modalidad&&ev.modalidad!=='presencial'?' · '+ev.modalidad:''}</p></div>
+              <span className="badge b-green">Agendado</span>
+            </div>; })}
+          {pendAgenda>0&&<p style={{margin:'4px 0 0',fontSize:11,color:'#fbbf24',fontFamily:PC_FONT}}>{pendAgenda} solicitud{pendAgenda!==1?'es':''} pendiente{pendAgenda!==1?'s':''} de agendar.</p>}
+          <button className="dash-ver-mas" onClick={()=>onNav('calendario')}><Ico n="cal" s={13}/>Ver calendario completo</button>
+        </div>
+      </div>
+    </div>
+
+    {recientes.length>0&&<div className="dash-card">
+      <PcTitulo ico="check" extra={<button className="btn btn-ghost btn-sm" onClick={()=>irA('cumplida')}><Ico n="eye" s={12}/>Ver todas las cumplidas</button>}>Cumplidas recientemente</PcTitulo>
+      {recientes.map(t=><div key={t.id} className="dash-task-item" style={{flexDirection:'column',alignItems:'stretch',cursor:'pointer'}} onClick={()=>onVerTarea(t)}>
+        <div style={{display:'flex',justifyContent:'space-between',gap:12,flexWrap:'wrap',alignItems:'center'}}>
+          <span style={{fontWeight:500,fontSize:13,color:PC_TXT.ink,fontFamily:PC_FONT}}>{t.titulo}</span>
+          <span className="badge b-green">Cumplida{t.fechaCumplimiento?' · '+fmt.date(t.fechaCumplimiento):''}</span>
+        </div>
+        {t.reporteInforme&&<p style={{margin:'6px 0 0',fontSize:12,color:'#94a3b8',lineHeight:1.5}}>{t.reporteInforme}</p>}
+        {verSoportes&&<div onClick={e=>e.stopPropagation()}><PcSoportes t={t}/></div>}
+      </div>)}
+    </div>}
+  </div>;
+};
+
+const PcCalendario = ({tareas, eventos, solicitudes, onSolicitar, onVerTarea}) => {
+  const hoyD = new Date();
+  const hoy = pcHoy();
+  const [fecha,setFecha] = useState(new Date(hoyD.getFullYear(), hoyD.getMonth(), 1));
+  const [sel,setSel] = useState(hoy);
+  const y=fecha.getFullYear(), m=fecha.getMonth();
+  const MESES=ARCH_MESES;
+  const primer = (new Date(y,m,1).getDay()||7)-1;
+  const dias = new Date(y,m+1,0).getDate();
+  const iso = d => `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  // Solicitudes del cliente que aún no se agendan (se muestran en la fecha que propuso)
+  const pendientes = useMemo(()=>solicitudes.filter(r=>REQ_ABIERTOS.includes(reqEstado(r,tareas).key) && r.fechaPropuesta),[solicitudes,tareas]);
+  const items = useMemo(()=>[
+    ...eventos.map(e=>({...e,_k:e.tipo==='Capacitación'?'cap':'reu'})),
+    ...pendientes.map(r=>({id:'sol_'+r.id, _req:r, titulo:r.titulo.replace(/^Solicitud de (reunión|capacitación):\s*/i,''), fechaVen:r.fechaPropuesta, horaInicio:r.horaPropuesta, _k:'sol', _sub:r.subtipo})),
+    ...tareas.filter(t=>t.fechaVen&&t.estado!=='cancelada').map(t=>({...t,_k:t.estado==='completada'?'ok':'ven'})),
+  ],[tareas,eventos,pendientes]);
+  const delDia = s => items.filter(i=>i.fechaVen===s).sort((a,b)=>String(a.horaInicio||'99').localeCompare(String(b.horaInicio||'99')));
+  const ESTILO = {
+    reu:{bg:'rgba(59,130,246,.18)',bd:'#3b82f6',fg:'#93c5fd',pre:'',lbl:'Reunión agendada'},
+    cap:{bg:'rgba(20,184,166,.16)',bd:'#14b8a6',fg:'#5eead4',pre:'',lbl:'Capacitación agendada'},
+    sol:{bg:'rgba(245,158,11,.10)',bd:'#f59e0b',fg:'#fcd34d',pre:'Pendiente: ',lbl:'Solicitud pendiente',dash:true},
+    ven:{bg:'rgba(201,168,76,.16)',bd:'#C9A84C',fg:'#e8c96a',pre:'Vence: ',lbl:'Vencimiento de tarea'},
+    ok:{bg:'rgba(74,222,128,.12)',bd:'#22c55e',fg:'#86efac',pre:'Cumplida: ',lbl:'Tarea cumplida'},
+  };
+  const celdas = [];
+  for(let i=0;i<primer;i++) celdas.push(null);
+  for(let d=1;d<=dias;d++) celdas.push(d);
+  while(celdas.length%7) celdas.push(null);
+  const selItems = delDia(sel);
+  const selD = new Date(sel+'T12:00:00');
+
+  return <div className="fade dash-premium">
+    <div style={{display:'flex',justifyContent:'flex-end',gap:8,flexWrap:'wrap',marginBottom:14}}>
+      <button className="btn btn-ghost" onClick={()=>onSolicitar({subtipo:'capacitacion', fecha:sel})}><Ico n="user" s={14}/>Solicitar capacitación</button>
+      <button className="btn btn-g" onClick={()=>onSolicitar({subtipo:'reunion', fecha:sel})}><Ico n="team" s={14}/>Solicitar reunión</button>
+    </div>
+    <div style={{display:'flex',gap:14,flexWrap:'wrap',alignItems:'flex-start'}}>
+    <div className="dash-card" style={{flex:'999 1 600px',minWidth:0}}>
+      <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',marginBottom:16}}>
+        <button aria-label="Mes anterior" className="btn btn-ghost btn-sm" onClick={()=>setFecha(new Date(y,m-1,1))}><Ico n="chevL" s={16}/></button>
+        <h3 style={{margin:0,fontFamily:PC_FONT,fontSize:17,fontWeight:700,color:'#fff',minWidth:170,textAlign:'center'}}>{MESES[m]} <span style={{color:'#C9A84C'}}>{y}</span></h3>
+        <button aria-label="Mes siguiente" className="btn btn-ghost btn-sm" onClick={()=>setFecha(new Date(y,m+1,1))}><Ico n="chevR" s={16}/></button>
+        <button className="btn btn-ghost btn-sm" onClick={()=>{setFecha(new Date(hoyD.getFullYear(),hoyD.getMonth(),1)); setSel(hoy);}}>Hoy</button>
+        <div style={{flex:1}}/>
+        <div style={{display:'flex',gap:12,fontSize:11,color:'#94a3b8',flexWrap:'wrap'}}>
+          {['reu','cap','sol','ven','ok'].map(k=><span key={k} style={{display:'flex',alignItems:'center',gap:6}}><i style={{width:9,height:9,borderRadius:3,background:ESTILO[k].dash?'transparent':ESTILO[k].bd,border:ESTILO[k].dash?`1px dashed ${ESTILO[k].bd}`:'none'}}/>{ESTILO[k].lbl}</span>)}
+        </div>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(7,minmax(0,1fr))',gap:5,fontSize:11,color:'#64748b',textAlign:'center',fontWeight:600,textTransform:'uppercase',letterSpacing:'.5px',marginBottom:6}}>
+        {['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(d=><span key={d}>{d}</span>)}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(7,minmax(0,1fr))',gap:5}}>
+        {celdas.map((d,i)=>{
+          if(!d) return <div key={'v'+i} style={{minHeight:88,borderRadius:8,background:'rgba(15,25,35,.45)'}}/>;
+          const s=iso(d), its=delDia(s), esHoy=s===hoy, esSel=s===sel;
+          return <button key={s} onClick={()=>setSel(s)} aria-label={`${d} de ${MESES[m]}, ${its.length} evento${its.length!==1?'s':''}`} aria-pressed={esSel}
+            style={{minHeight:88,borderRadius:8,cursor:'pointer',padding:6,boxSizing:'border-box',display:'flex',flexDirection:'column',gap:3,textAlign:'left',overflow:'hidden',transition:'all .18s',
+              border:esSel?'1px solid rgba(201,168,76,.6)':'1px solid #243447',
+              background:esSel?'linear-gradient(135deg,rgba(30,58,95,.7),rgba(42,82,152,.4))':esHoy?'rgba(201,168,76,.08)':'#0f1923',
+              boxShadow:esSel?'0 0 0 2px rgba(201,168,76,.12)':'none',fontFamily:'DM Sans,sans-serif'}}>
+            <span style={{fontSize:12,fontWeight:700,color:esHoy||esSel?'#C9A84C':'#cbd5e1'}}>{d}</span>
+            {its.slice(0,3).map(it=>{ const st=ESTILO[it._k]; return <span key={it.id} style={{fontSize:10.5,lineHeight:1.3,padding:'2px 5px',borderRadius:4,background:st.bg,borderLeft:`2px ${st.dash?'dashed':'solid'} ${st.bd}`,color:st.fg,overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',maxWidth:'100%'}}>{st.pre}{it.titulo}</span>; })}
+            {its.length>3&&<span style={{fontSize:10.5,color:'#C9A84C',fontWeight:700}}>+{its.length-3} más</span>}
+          </button>;
+        })}
+      </div>
+    </div>
+    <div style={{flex:'1 1 290px',minWidth:0,display:'flex',flexDirection:'column',gap:14}}>
+      <div className="dash-card">
+        <PcTitulo ico="clock"><span style={{textTransform:'capitalize'}}>{selD.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long'})}</span></PcTitulo>
+        {selItems.length===0&&<PcVacio>Sin actividades programadas este día.</PcVacio>}
+        {selItems.map(it=>{ const st=ESTILO[it._k]; const esEv=it._k==='reu'||it._k==='cap'; const esTarea=it._k==='ven'||it._k==='ok';
+          return <div key={it.id} className="dash-task-item" style={{flexDirection:'column',alignItems:'stretch',borderLeft:`3px ${st.dash?'dashed':'solid'} ${st.bd}`,cursor:esTarea?'pointer':'default'}}
+            onClick={esTarea?()=>onVerTarea(it):undefined}>
+            <div style={{display:'flex',justifyContent:'space-between',gap:8,alignItems:'flex-start'}}>
+              <span style={{fontWeight:600,fontSize:13,color:PC_TXT.ink,fontFamily:PC_FONT}}>{st.pre}{it.titulo}</span>
+              {esEv&&<span className="badge b-green">Agendado</span>}
+              {it._k==='sol'&&<span className="badge b-yellow">Pendiente</span>}
+            </div>
+            <span style={{fontSize:11,color:PC_TXT.muted,marginTop:2}}>
+              {esEv
+                ? [it.tipo, it.horaInicio&&(it.horaInicio+(it.horaFin?' – '+it.horaFin:'')), it.lugar, it.modalidad&&it.modalidad!=='presencial'?it.modalidad:null].filter(Boolean).join(' · ')
+                : it._k==='sol'
+                  ? (it._sub==='capacitacion'?'Capacitación':'Reunión')+' solicitada'+(it.horaInicio?' · '+it.horaInicio:'')+' · esperando confirmación del consultor'
+                  : reqAreaLabel(it.areaEspecialidad)+' · '+pcEstadoTarea(it,hoy).l}
+            </span>
+            {it.linkVirtual&&<a href={it.linkVirtual} target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:'#C9A84C',fontWeight:600,marginTop:4,display:'inline-flex',alignItems:'center',gap:5}}><Ico n="link" s={12}/>Unirse a la reunión virtual</a>}
+          </div>; })}
+        <button className="dash-ver-mas" onClick={()=>onSolicitar({subtipo:'reunion', fecha:sel})}><Ico n="plus" s={13}/>Solicitar para este día</button>
+      </div>
+      <div className="dash-card">
+        <PcTitulo ico="info">Su agenda</PcTitulo>
+        <p style={{margin:0,fontSize:12.5,lineHeight:1.6,color:'#94a3b8',fontFamily:PC_FONT}}>Solicite reuniones o capacitaciones proponiendo fecha y hora. Quedan <b style={{color:'#fcd34d'}}>Pendientes</b> hasta que su consultor las confirma; entonces pasan a <b style={{color:'#4ade80'}}>Agendado</b> con la fecha definitiva.</p>
+        {pendientes.length>0&&<p style={{margin:'10px 0 0',fontSize:12,color:'#fcd34d'}}>{pendientes.length} solicitud{pendientes.length!==1?'es':''} pendiente{pendientes.length!==1?'s':''}.</p>}
+      </div>
+    </div>
+    </div>
+  </div>;
+};
+
+const PcRequerimientos = ({user, reqs, tareas, onNuevo, onSolicitar, onActualizar, verSoportes, toast}) => {
+  const [selId,setSelId] = useState(null);
+  const [resp,setResp] = useState('');
+  const [tipo,setTipo] = useState('todos');
+  const [periodo,setPeriodo] = useState('actual');
+  const meses = useMemo(()=>archMesesDisponibles(reqs.map(r=>archMesReq(r,tareas))),[reqs,tareas]);
+  const ordenados = useMemo(()=>[...reqs]
+    .filter(r=>(tipo==='todos'||reqTipo(r)===tipo) && archEnPeriodo(archMesReq(r,tareas), periodo))
+    .sort((a,b)=>String(b.recibidoEn||b.creadoEn||'').localeCompare(String(a.recibidoEn||a.creadoEn||''))),[reqs,tareas,tipo,periodo]);
+  const sel = ordenados.find(r=>r.id===selId) || ordenados[0];
+  const archivados = periodo==='actual' ? reqs.filter(r=>{ const m=archMesReq(r,tareas); return m && m<archMesActual(); }).length : 0;
+  useEffect(()=>{ setResp(''); },[sel?.id]);
+  // Respuesta a "Pedir más información" o mensaje adicional en una observación
+  const responder = () => {
+    if(!resp.trim()) return toast('Escriba su mensaje','error');
+    const now = new Date().toISOString();
+    let r2;
+    if(reqTipo(sel)==='observacion'){
+      r2 = {...sel, estado:'recibido', recibidoEn:now, ultimoMensajeCliente:resp.trim()};
+      r2 = ReqSvc.evento(r2, 'mensaje_cliente', resp.trim(), user.nombre||'Cliente');
+    } else {
+      r2 = {...sel, estado:'recibido', respuestaCliente:resp.trim(), recibidoEn:now};
+      r2 = ReqSvc.evento(r2, 'respuesta_cliente', resp.trim(), user.nombre||'Cliente');
+    }
+    DB.set('requerimientos', r2).catch(()=>{});
+    onActualizar(r2); setResp('');
+    toast('Mensaje enviado a Integra Consultores','success');
+  };
+  const tSel = sel?.tareaId ? tareas.find(t=>t.id===sel.tareaId) : null;
+  const tObs = sel && reqTipo(sel)==='observacion' ? tareas.find(t=>t.id===sel.tareaObservadaId) : null;
+  const evSel = sel ? reqEventoDe(sel, tareas) : null;
+  const sub = {margin:'0 0 8px',fontSize:11,fontWeight:600,color:'#64748b',textTransform:'uppercase',letterSpacing:'.5px'};
+  const TABS = [{id:'todos',l:'Todos'},{id:'requerimiento',l:'Requerimientos'},{id:'observacion',l:'Observaciones'},{id:'agenda',l:'Agenda'}];
+  const cuentaTipo = id => reqs.filter(r=>(id==='todos'||reqTipo(r)===id) && archEnPeriodo(archMesReq(r,tareas), periodo)).length;
+
+  return <div className="fade dash-premium">
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap',marginBottom:14}}>
+      <PcPeriodo value={periodo} onChange={v=>{ setPeriodo(v); setSelId(null); }} meses={meses}/>
+      <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+        <button onClick={()=>onSolicitar({subtipo:'reunion'})} className="btn btn-ghost"><Ico n="cal" s={14}/>Solicitar reunión</button>
+        <button onClick={()=>onNuevo()} className="btn btn-g"><Ico n="plus" s={14}/>Nuevo requerimiento</button>
+      </div>
+    </div>
+    <div className="fil-bar" style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14,alignItems:'center'}} role="group" aria-label="Tipo de solicitud">
+      {TABS.map(t=><button key={t.id} className={clx('chip',tipo===t.id&&'active')} aria-pressed={tipo===t.id} onClick={()=>{ setTipo(t.id); setSelId(null); }}>{t.l} ({cuentaTipo(t.id)})</button>)}
+      {archivados>0&&<span style={{marginLeft:'auto',fontSize:11,color:'#64748b',fontFamily:PC_FONT}}>{archivados} cerrada{archivados!==1?'s':''} en meses anteriores · consúltelas en Periodo</span>}
+    </div>
+    {ordenados.length===0
+      ? <div className="dash-card" style={{textAlign:'center',padding:'44px 24px'}}>
+          <div style={{width:52,height:52,borderRadius:14,margin:'0 auto 14px',display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(201,168,76,.1)',border:'1px solid rgba(201,168,76,.25)'}}><Ico n="flag" s={22} c="#C9A84C"/></div>
+          <h3 style={{margin:'0 0 6px',fontSize:16,color:'#fff',fontFamily:PC_FONT}}>{reqs.length===0?'Aún no ha enviado solicitudes':'No hay solicitudes en esta vista'}</h3>
+          <p style={{margin:'0 auto 18px',color:PC_TXT.muted,fontSize:13,maxWidth:440,fontFamily:PC_FONT}}>{reqs.length===0?'Cuéntenos lo que necesita y nuestro equipo lo convertirá en una tarea con seguimiento en este portal.':'Cambie el tipo o el periodo para consultar el histórico.'}</p>
+          {reqs.length===0&&<button onClick={()=>onNuevo()} className="btn btn-p"><Ico n="send" s={14}/>Enviar el primero</button>}
+        </div>
+      : <div style={{display:'flex',gap:14,flexWrap:'wrap',alignItems:'flex-start'}}>
+          <div className="dash-card" style={{flex:'999 1 480px',minWidth:0}}>
+            <PcTitulo ico="flag">Mis solicitudes</PcTitulo>
+            {ordenados.map(r=>{ const e=reqEstadoCliente(r,tareas); const activo=sel?.id===r.id; const tp=REQ_TIPOS[reqTipo(r)];
+              return <button key={r.id} onClick={()=>setSelId(r.id)} aria-pressed={activo} className={clx('si',activo&&'active')}
+                style={{marginBottom:6,padding:'11px 12px',gap:12,flexWrap:'wrap',border:activo?undefined:'1px solid rgba(36,52,71,.6)',background:activo?undefined:'linear-gradient(135deg,#0f1923 0%,#121e2d 100%)'}}>
+                <Ico n={tp.ico} s={14} c={activo?'#C9A84C':'#64748b'}/>
+                <span style={{fontSize:11,color:activo?'#C9A84C':'#64748b',width:72,flexShrink:0,fontWeight:600}}>{r.numero}</span>
+                <span style={{flex:'1 1 180px',minWidth:0,fontWeight:activo?600:500,color:activo?'#fff':PC_TXT.ink,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontFamily:PC_FONT}}>{r.titulo}</span>
+                <PcChip tone={e.tone}>{e.label}</PcChip>
+              </button>; })}
+          </div>
+          {sel&&<div className="dash-card fade" key={sel.id} style={{flex:'1 1 340px',minWidth:0,display:'flex',flexDirection:'column',gap:16}}>
+            <div>
+              <span style={{fontSize:11,color:'#C9A84C',fontWeight:600}}>{REQ_TIPOS[reqTipo(sel)].l} · {sel.numero} · enviado {reqFechaHora(sel.creadoEn)}</span>
+              <h3 style={{margin:'4px 0 0',fontSize:16,color:'#fff',fontFamily:PC_FONT}}>{sel.titulo}</h3>
+              {reqTipo(sel)==='requerimiento'&&<p style={{margin:'4px 0 0',fontSize:12,color:PC_TXT.muted}}>{reqAreaLabel(sel.areaEspecialidad)} · Prioridad {reqPrioLabel(sel.prioridad).toLowerCase()}{sel.fechaRequerida?' · Para el '+fmt.date(sel.fechaRequerida):''}</p>}
+              {reqTipo(sel)==='observacion'&&tObs&&<p style={{margin:'4px 0 0',fontSize:12,color:PC_TXT.muted}}>Tarea: {tObs.titulo} · {pcEstadoTarea(tObs,pcHoy()).l}</p>}
+              {reqTipo(sel)==='agenda'&&<p style={{margin:'4px 0 0',fontSize:12,color:PC_TXT.muted}}>{sel.subtipo==='capacitacion'?'Capacitación':'Reunión'} · propuso {sel.fechaPropuesta?fmt.date(sel.fechaPropuesta):'—'}{sel.horaPropuesta?' · '+sel.horaPropuesta:''} · {sel.modalidad||'presencial'}</p>}
+            </div>
+            {sel.estado==='info_solicitada'&&<div style={{padding:14,borderRadius:10,background:'rgba(120,80,10,.22)',border:'1px solid rgba(251,191,36,.3)',display:'flex',flexDirection:'column',gap:10}}>
+              <b style={{color:'#fbbf24',fontSize:13,display:'flex',alignItems:'center',gap:8}}><span className="notif-dot" style={{background:'#f59e0b'}}/>Integra Consultores necesita más información</b>
+              <p style={{margin:0,fontSize:13,color:'#fde68a',lineHeight:1.5,whiteSpace:'pre-wrap'}}>{sel.preguntaEquipo}</p>
+              <div><label style={pcLbl} htmlFor="pc-resp">Su respuesta</label>
+                <textarea id="pc-resp" className="inp" rows={3} value={resp} onChange={e=>setResp(e.target.value)} maxLength={1500}/>
+              </div>
+              <button onClick={responder} className="btn btn-g btn-sm" style={{alignSelf:'flex-end'}}><Ico n="send" s={13}/>Enviar respuesta</button>
+            </div>}
+            {sel.estado==='agendado'&&<div style={{padding:14,borderRadius:10,background:'rgba(26,107,58,.2)',border:'1px solid rgba(74,222,128,.25)',display:'flex',flexDirection:'column',gap:4}}>
+              <b style={{fontSize:13,color:'#4ade80',display:'flex',alignItems:'center',gap:6}}><Ico n="cal" s={14}/>Agendado · {fmt.date(evSel?.fechaVen||sel.fechaAgendada)}{(evSel?.horaInicio||sel.horaAgendada)?' · '+(evSel?.horaInicio||sel.horaAgendada)+((evSel?.horaFin||sel.horaFinAgendada)?' – '+(evSel?.horaFin||sel.horaFinAgendada):''):''}</b>
+              <p style={{margin:0,fontSize:12,color:'#cbd5e1'}}>{[evSel?.modalidad||sel.modalidadAgendada, evSel?.lugar||sel.lugarAgendado].filter(Boolean).join(' · ')}</p>
+              {(evSel?.linkVirtual||sel.linkAgendado)&&<a href={evSel?.linkVirtual||sel.linkAgendado} target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:'#C9A84C',fontWeight:600,display:'inline-flex',alignItems:'center',gap:5}}><Ico n="link" s={12}/>Unirse a la reunión virtual</a>}
+            </div>}
+            {sel.estado==='no_procede'
+              ? <div style={{padding:14,borderRadius:10,background:'rgba(51,65,85,.35)',border:'1px solid rgba(148,163,184,.2)'}}><b style={{fontSize:13,color:'#cbd5e1'}}>No procede</b>
+                  <p style={{margin:'4px 0 0',fontSize:13,color:'#94a3b8',lineHeight:1.5}}>{sel.motivoNoProcede}</p></div>
+              : <ReqPasos req={sel} tareas={tareas}/>}
+            {(sel.historial||[]).some(h=>h.texto&&h.estado!=='recibido')&&<div style={{display:'flex',flexDirection:'column',gap:8}}>
+              <h4 style={sub}>{reqTipo(sel)==='observacion'?'Conversación':'Mensajes'}</h4>
+              <PcHilo req={sel}/>
+            </div>}
+            {reqTipo(sel)==='observacion'&&sel.estado!=='info_solicitada'&&<div>
+              <label style={pcLbl} htmlFor="pc-obs-resp">Escribir otro mensaje</label>
+              <textarea id="pc-obs-resp" className="inp" rows={2} value={resp} onChange={e=>setResp(e.target.value)} maxLength={1200} placeholder="Si necesita más claridad, escríbanos aquí."/>
+              <div style={{display:'flex',justifyContent:'flex-end',marginTop:8}}><button onClick={responder} className="btn btn-p btn-sm"><Ico n="send" s={13}/>Enviar</button></div>
+            </div>}
+            {reqTipo(sel)!=='observacion'&&sel.desc&&<div><h4 style={sub}>Lo que solicitó</h4>
+              <p style={{margin:0,fontSize:13,color:'#94a3b8',lineHeight:1.55,whiteSpace:'pre-wrap'}}>{sel.desc}</p>
+              {Array.isArray(sel.adjuntos)&&sel.adjuntos.length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:8}}>
+                {sel.adjuntos.map((a,i)=><a key={i} href={a.data} download={a.nombre} className="btn btn-ghost btn-sm" style={{textDecoration:'none'}}><Ico n={a.tipo==='application/pdf'?'pdf':'photo'} s={13} c="#C9A84C"/>{a.nombre}</a>)}
+              </div>}
+            </div>}
+            {tSel&&tSel.estado==='completada'&&<div style={{padding:14,borderRadius:10,background:'rgba(26,107,58,.2)',border:'1px solid rgba(74,222,128,.25)',display:'flex',flexDirection:'column',gap:4}}>
+              <b style={{fontSize:13,color:'#4ade80',display:'flex',alignItems:'center',gap:6}}><Ico n="check" s={14}/>Completado{tSel.fechaCumplimiento?' el '+fmt.date(tSel.fechaCumplimiento):''}</b>
+              {tSel.reporteInforme&&<p style={{margin:0,fontSize:13,color:'#cbd5e1',lineHeight:1.5}}>{tSel.reporteInforme}</p>}
+              {verSoportes&&<PcSoportes t={tSel}/>}
+            </div>}
+          </div>}
+        </div>}
+  </div>;
+};
+
+const PortalCliente = ({user, onLogout}) => {
+  const [vista,setVista] = useState('dashboard');
+  const [tareasAll,setTareasAll] = useState(()=>DB.get('tareas'));
+  const [reqsAll,setReqsAll] = useState(()=>DB.get('requerimientos'));
+  const [empresas,setEmpresas] = useState(()=>DB.get('portal_empresas'));
+  const [nuevo,setNuevo] = useState(null);     // null | {prefill}
+  const [agenda,setAgenda] = useState(null);   // null | {prefill}
+  const [tareaSel,setTareaSel] = useState(null);
+  const [toasts,setToasts] = useState([]);
+  const [col,setCol] = useState(false);
+  const [mobOpen,setMobOpen] = useState(false);
+  const [online,setOnline] = useState(()=>navigator.onLine);
+  const toast = useCallback((msg,type='info')=>{ const id=uid(); setToasts(p=>[...p,{id,msg,type}]); },[]);
+  const cid = user.clienteId;
+  const cfg = useMemo(()=>{ try{ return JSON.parse(localStorage.getItem('ip_config')||'{}'); }catch(_){ return {}; } },[]);
+
+  useEffect(()=>{
+    // El portal no programa notificaciones internas del equipo
+    try { window.PushSvc?.stop(); } catch(_){}
+    const u1 = DB.sub('tareas', setTareasAll);
+    const u2 = DB.sub('requerimientos', setReqsAll);
+    const u3 = DB.sub('portal_empresas', setEmpresas);
+    const net = ()=>setOnline(navigator.onLine);
+    window.addEventListener('online',net); window.addEventListener('offline',net);
+    return ()=>{ u1(); u2(); u3(); window.removeEventListener('online',net); window.removeEventListener('offline',net); };
+  },[]);
+
+  // Ficha de la empresa (nombre vigente del módulo Clientes + logo cargado por el administrador)
+  const empresa = useMemo(()=>(empresas||[]).find(e=>e.id===cid) || null,[empresas,cid]);
+  const logo = empresa ? (empresa.logo||'') : (user.clienteLogo||'');
+  const u = useMemo(()=>({...user, clienteNombre: empresa?.nombre || user.clienteNombre || ''}),[user,empresa]);
+
+  // Aislamiento en la vista: solo registros de la empresa vinculada al acceso
+  const tareas  = useMemo(()=>cid ? tareasAll.filter(t=>t.clienteId===cid && !t.esAlerta) : [],[tareasAll,cid]);
+  const eventos = useMemo(()=>cid ? tareasAll.filter(t=>t.clienteId===cid && pcEsEvento(t)) : [],[tareasAll,cid]);
+  const reqs    = useMemo(()=>cid ? reqsAll.filter(r=>r.clienteId===cid) : [],[reqsAll,cid]);
+  const solicitudesAgenda = useMemo(()=>reqs.filter(r=>reqTipo(r)==='agenda'),[reqs]);
+  // Las solicitudes de agenda leen el evento real (que es una alerta) para mostrar su estado
+  const tareasConEventos = useMemo(()=>[...tareas, ...eventos],[tareas,eventos]);
+  const verSoportes = user.verSoportes !== false;
+  const reqInfo = reqs.filter(r=>r.estado==='info_solicitada').length;
+  const abrirNuevo = prefill => setNuevo({prefill: prefill||null});
+  const abrirAgenda = prefill => setAgenda({prefill: prefill||null});
+  const upsertReq = r => setReqsAll(prev => prev.some(x=>x.id===r.id) ? prev.map(x=>x.id===r.id?r:x) : [r,...prev]);
+  const verTarea = t => setTareaSel(t);
+  const tareaViva = tareaSel ? (tareas.find(t=>t.id===tareaSel.id) || tareaSel) : null;
+
+  const NAV = [{id:'dashboard',l:'Dashboard',ico:'dash'},{id:'calendario',l:'Calendario',ico:'cal'},{id:'requerimientos',l:'Requerimientos',ico:'flag'}];
+  const TIT = {dashboard:'Dashboard', calendario:'Calendario', requerimientos:'Mis Requerimientos'};
+
+  return <>
+    <style>{`.pc-kpi-link{cursor:pointer;border-radius:14px;outline:none}.pc-kpi-link .kpi-premium{cursor:pointer}.pc-kpi-link:focus-visible{box-shadow:0 0 0 2px rgba(201,168,76,.6)}.pc-estado-row:hover{background:rgba(201,168,76,.06)!important;border-color:rgba(201,168,76,.22)!important}`}</style>
+    <div className="page">
+      <div className={clx('mob-overlay',mobOpen&&'active')} onClick={()=>setMobOpen(false)}/>
+      <aside className={clx('sidebar',col&&'col',mobOpen&&'mob-open')} aria-label="Portal de clientes">
+        <div style={{height:56,display:'flex',alignItems:'center',justifyContent:col?'center':'space-between',padding:'0 12px',borderBottom:'1px solid #243447',flexShrink:0}}>
+          {!col&&<div style={{display:'flex',alignItems:'center',gap:cfg?.logo?10:0}}>
+            {cfg?.logo&&<img src={cfg.logo} alt="Logo" style={{width:32,height:32,objectFit:'contain',borderRadius:6,background:'rgba(255,255,255,.06)',padding:2,flexShrink:0}}/>}
+            <div style={{display:'flex',flexDirection:'column',lineHeight:1}}>
+              <span className="sy" style={{fontWeight:800,fontSize:15,color:'#fff',letterSpacing:'-0.3px'}}>INT<span style={{color:'#C9A84C'}}>PLANNER</span></span>
+              <span style={{fontSize:9,fontWeight:700,color:'#C9A84C',opacity:.7,letterSpacing:'.8px',marginTop:1}}>PORTAL CLIENTES</span>
+            </div>
+          </div>}
+          <button onClick={()=>setCol(p=>!p)} className="mob-hide-toggle" aria-label="Contraer menú" style={{background:'none',border:'none',cursor:'pointer',color:'#64748b',padding:6,borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
+            <Ico n="menu" s={20}/>
+          </button>
+        </div>
+        <nav style={{flex:1,minHeight:0,overflowY:'auto',overflowX:'hidden',padding:'8px',display:'flex',flexDirection:'column',gap:2}}>
+          {NAV.map(n=>(
+            <button key={n.id} className={clx('si',vista===n.id&&'active')} aria-current={vista===n.id?'page':undefined} title={col?n.l:undefined}
+              onClick={()=>{setVista(n.id); setMobOpen(false);}} style={n.id==='requerimientos'?{position:'relative'}:undefined}>
+              <Ico n={n.ico} s={17}/>
+              <span className="si-label">{n.l}</span>
+              {n.id==='requerimientos'&&reqInfo>0&&<span aria-label={`${reqInfo} por responder`} style={col
+                ?{position:'absolute',top:4,right:6,width:9,height:9,borderRadius:'50%',background:'#f59e0b',boxShadow:'0 0 0 2px #162030'}
+                :{marginLeft:'auto',minWidth:20,height:20,padding:'0 6px',borderRadius:99,background:'#f59e0b',color:'#0f1923',fontSize:11,fontWeight:700,display:'inline-flex',alignItems:'center',justifyContent:'center'}}>{col?null:reqInfo}</span>}
+            </button>
+          ))}
+        </nav>
+        {!col&&<div style={{padding:'12px',borderTop:'1px solid #243447',flexShrink:0}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <div style={{width:32,height:32,borderRadius:logo?8:'50%',background:logo?'#fff':'linear-gradient(135deg,#1E3A5F,#2a5298)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700,color:'#fff',flexShrink:0,overflow:'hidden'}}>
+              {logo?<img src={logo} alt="" style={{width:'100%',height:'100%',objectFit:'contain'}}/>:(u.clienteNombre||user?.nombre||'C').charAt(0).toUpperCase()}
+            </div>
+            <div style={{overflow:'hidden'}}>
+              <p style={{fontSize:12,fontWeight:600,color:'#fff',margin:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{u.clienteNombre||'Su empresa'}</p>
+              <p style={{fontSize:11,color:'#475569',margin:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{user?.nombre||user?.email}{user?.cargo?' · '+user.cargo:''}</p>
+            </div>
+          </div>
+        </div>}
+      </aside>
+      <div className="main">
+        <div className="topbar">
+          <button onClick={()=>setMobOpen(true)} className="mob-ham" aria-label="Abrir menú"
+            style={{display:'none',background:'none',border:'none',cursor:'pointer',color:'#94a3b8',padding:'6px 8px 6px 0',borderRadius:6,alignItems:'center',flexShrink:0}}>
+            <Ico n="menu" s={22}/>
+          </button>
+          <h2 style={{fontWeight:700,fontSize:16,color:'#fff',margin:0,fontFamily:PC_FONT}}>{TIT[vista]}</h2>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            {!online&&<div style={{display:'flex',alignItems:'center',gap:6,fontSize:11,fontWeight:600,padding:'4px 10px',borderRadius:20,background:'rgba(180,83,9,.25)',border:'1px solid rgba(217,119,6,.4)',color:'#fbbf24'}}>
+              <span style={{width:7,height:7,borderRadius:'50%',background:'#f59e0b',display:'inline-block'}}/>Offline</div>}
+            <div className="mob-hide" style={{display:'flex',alignItems:'center',gap:6,fontSize:11,fontWeight:600,padding:'4px 12px',borderRadius:20,border:'1px solid rgba(201,168,76,.3)',background:'rgba(201,168,76,.08)',color:'#C9A84C',fontFamily:PC_FONT,maxWidth:260,overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>
+              <Ico n="clients" s={12}/>{u.clienteNombre||'Su empresa'}
+            </div>
+            <button onClick={onLogout} title="Cerrar sesión" aria-label="Cerrar sesión" style={{background:'none',border:'none',cursor:'pointer',color:'#64748b',padding:6,borderRadius:6,display:'flex',alignItems:'center',gap:5,fontSize:12}}>
+              <Ico n="logout" s={16}/>
+            </button>
+          </div>
+        </div>
+        <div className="content">
+          {!cid
+            ? <div className="fade dash-premium"><div className="dash-card" style={{textAlign:'center',padding:'40px 24px'}}>
+                <Ico n="lock" s={26} c="#C9A84C"/>
+                <h3 style={{margin:'12px 0 6px',fontSize:16,color:'#fff',fontFamily:PC_FONT}}>Su acceso no está vinculado a una empresa</h3>
+                <p style={{margin:0,color:PC_TXT.muted,fontSize:13}}>Pida a Integra Consultores que revise la configuración de su usuario.</p>
+              </div></div>
+            : vista==='dashboard'
+              ? <PcDashboard key="d" user={u} logo={logo} tareas={tareas} eventos={eventos} reqs={reqs} onNav={setVista} onNuevo={abrirNuevo} onVerTarea={verTarea} verSoportes={verSoportes}/>
+            : vista==='calendario'
+              ? <PcCalendario key="c" tareas={tareas} eventos={eventos} solicitudes={solicitudesAgenda} onSolicitar={abrirAgenda} onVerTarea={verTarea}/>
+              : <PcRequerimientos key="r" user={u} reqs={reqs} tareas={tareasConEventos} onNuevo={abrirNuevo} onSolicitar={abrirAgenda} onActualizar={upsertReq} verSoportes={verSoportes} toast={toast}/>}
+        </div>
+      </div>
+    </div>
+
+    {nuevo&&<PcNuevoReq user={u} reqsAll={reqsAll} prefill={nuevo.prefill} toast={toast}
+      onClose={()=>setNuevo(null)} onCreado={r=>{ upsertReq(r); setNuevo(null); setVista('requerimientos'); }}/>}
+    {agenda&&<PcSolicitudAgenda user={u} reqsAll={reqsAll} prefill={agenda.prefill} toast={toast}
+      onClose={()=>setAgenda(null)} onCreado={r=>{ upsertReq(r); setAgenda(null); }}/>}
+    {tareaViva&&<PcTareaModal tarea={tareaViva} user={u} reqsAll={reqsAll} verSoportes={verSoportes} toast={toast}
+      onClose={()=>setTareaSel(null)} onEnviado={upsertReq}/>}
+    <div style={{position:'fixed',top:16,right:16,zIndex:2000,display:'flex',flexDirection:'column',gap:8}}>
+      {toasts.map(t=><Toast key={t.id} msg={t.msg} type={t.type} onClose={()=>setToasts(p=>p.filter(x=>x.id!==t.id))}/>)}
+    </div>
+  </>;
+};
+
 // ── APP ROOT ─────────────────────────────────────────────────
 const COMPS = {
   dashboard:Dashboard, tareas:Tareas, clientes:Clientes, equipo:Equipo,
   calendario:Calendario, visita_cliente:VisitaCliente, analytics:Analytics,
   alertas:Alertas, chat:Chat, cobros:Cobros, anticipos:Anticipos,
-  whatsapp:WhatsApp, exportar:Exportar, config:Config
+  whatsapp:WhatsApp, exportar:Exportar, config:Config,
+  requerimientos:Requerimientos // PORTAL v14
 };
 
 // ── ERROR BOUNDARY — FIX v12.1 ────────────────────────────────
@@ -15791,6 +17761,12 @@ const App = () => {
   const [alertas,setAlertas]=useState(()=>DB.get('alertas'));
   const [servicios,setServicios]=useState(()=>DB.get('servicios'));
   const [cargos,setCargos]=useState(()=>DB.get('cargos'));
+  // PORTAL v14: requerimientos de clientes + foco de navegación desde el aviso rojo
+  const [requerimientos,setRequerimientos]=useState(()=>DB.get('requerimientos'));
+  const [reqFocus,setReqFocus]=useState(null);
+  const [reqAlert,setReqAlert]=useState(false);
+  const reqSeenRef=useRef(new Set());
+  const reqSnoozeRef=useRef(null);
   const backup=!!JSON.parse(localStorage.getItem('ip_backup')||'null');
 
   // ── MODAL DE TAREAS PENDIENTES/VENCIDAS AL INICIAR SESIÓN ───
@@ -15799,17 +17775,9 @@ const App = () => {
   const loginAlertShownRef = useRef(false);
 
   useEffect(()=>{
-    if(!user || loginAlertShownRef.current) return;
-    // MÓVIL: en el primer acceso desde un dispositivo la caché local aún no está
-    // hidratada a los 800 ms (Firestore sincroniza de forma asíncrona y la red móvil
-    // es más lenta). Una única lectura devolvía 0 tareas y marcaba el aviso como
-    // mostrado, por lo que el modal nunca llegaba a aparecer en el celular.
-    // Se reevalúa en una ventana acotada hasta que haya datos disponibles.
-    let intentos = 0;
-    const MAX_INTENTOS = 12;          // ~10 s de margen de sincronización
-    let timer = null;
-    const evaluar = ()=>{
-      if(loginAlertShownRef.current) return;
+    if(!user || user.rol==='cliente' || loginAlertShownRef.current) return;
+    // Pequeño delay para garantizar que los datos de localStorage estén hidratados
+    const timer = setTimeout(()=>{
       const hoy = new Date().toISOString().split('T')[0];
       const tareasActual = JSON.parse(localStorage.getItem('ip_tareas')||'[]');
       const clientesActual = JSON.parse(localStorage.getItem('ip_clientes')||'[]');
@@ -15830,20 +17798,10 @@ const App = () => {
       if(vencidas.length>0||pendientes.length>0){
         setLoginAlertData({vencidas,pendientes});
         setShowLoginAlert(true);
-        loginAlertShownRef.current = true;
-        return;
       }
-      // Sin resultados: solo se da por concluido si ya hay datos hidratados
-      // o si se agota la ventana de espera. En caso contrario, reintentar.
-      intentos++;
-      if(tareasActual.length>0 || intentos>=MAX_INTENTOS){
-        loginAlertShownRef.current = true;
-        return;
-      }
-      timer = setTimeout(evaluar, 800);
-    };
-    timer = setTimeout(evaluar, 800);
-    return ()=>{ if(timer) clearTimeout(timer); };
+      loginAlertShownRef.current = true;
+    }, 800);
+    return ()=>clearTimeout(timer);
   },[user]);
 
   const toast = useCallback((msg,type='info')=>{
@@ -15967,7 +17925,9 @@ const App = () => {
 
   useEffect(()=>{
     if(!user) return;
-    const unsubs=[
+    // PORTAL v14: la sesión 'cliente' gestiona sus propias suscripciones dentro de PortalCliente;
+    // aquí solo se mantiene la escucha de su perfil (desactivación inmediata por el administrador).
+    const unsubs= user.rol==='cliente' ? [] : [
       DB.sub('tareas',setTareas),
       DB.sub('clientes',setClientes),
       DB.sub('equipo',setEquipo),
@@ -15978,6 +17938,7 @@ const App = () => {
       DB.sub('alertas',setAlertas),
       DB.sub('servicios',setServicios),
       DB.sub('cargos',setCargos),
+      DB.sub('requerimientos',setRequerimientos), // PORTAL v14
     ];
 
     // PERMISOS EN TIEMPO REAL (B-PERMISOS):
@@ -16038,6 +17999,38 @@ const App = () => {
     return () => { unsubs.forEach(fn=>fn()); unsubPerfil(); };
   },[user]);
 
+  // ── PORTAL v14: AVISO ROJO DE REQUERIMIENTOS ─────────────────
+  // Lo ve cualquier usuario del equipo que ingrese mientras exista un requerimiento
+  // en estado 'recibido' que no haya visto en esta sesión. La firma incluye
+  // recibidoEn, así que una respuesta del cliente vuelve a disparar el aviso.
+  const reqPendientes = (user && user.rol!=='cliente')
+    ? (requerimientos||[]).filter(r=>r&&r.estado==='recibido').sort((a,b)=>String(b.recibidoEn||b.creadoEn||'').localeCompare(String(a.recibidoEn||a.creadoEn||'')))
+    : [];
+  const reqFirmas = reqPendientes.map(r=>ReqSvc.firma(r)).join('|');
+  useEffect(()=>{
+    reqSeenRef.current = new Set();
+    setReqAlert(false);
+    if(reqSnoozeRef.current){ clearTimeout(reqSnoozeRef.current); reqSnoozeRef.current=null; }
+  },[user?.id]);
+  useEffect(()=>{
+    if(!user || user.rol==='cliente') return;
+    const nuevas = reqPendientes.filter(r=>!reqSeenRef.current.has(ReqSvc.firma(r)));
+    if(nuevas.length>0 && !reqSnoozeRef.current) setReqAlert(true);
+    if(reqPendientes.length===0) setReqAlert(false);
+  },[reqFirmas,user?.id]);
+  useEffect(()=>()=>{ if(reqSnoozeRef.current) clearTimeout(reqSnoozeRef.current); },[]);
+  const marcarReqVistos = () => { reqPendientes.forEach(r=>reqSeenRef.current.add(ReqSvc.firma(r))); };
+  const cerrarReqAlert = () => { marcarReqVistos(); setReqAlert(false); };
+  const posponerReqAlert = () => {
+    marcarReqVistos(); setReqAlert(false);
+    if(reqSnoozeRef.current) clearTimeout(reqSnoozeRef.current);
+    reqSnoozeRef.current = setTimeout(()=>{
+      reqSnoozeRef.current = null;
+      reqSeenRef.current = new Set();
+      setReqAlert(true);
+    }, 30*60*1000);
+  };
+
   const logout = async () => { localStorage.removeItem('ip_keep_session'); await AuthSvc.logout(); setUser(null); };
 
   // B2: Mostrar spinner mientras Firebase verifica la sesión (evita flash de login)
@@ -16050,6 +18043,8 @@ const App = () => {
   );
 
   if(!user) return <Login onLogin={u=>{ setUser(u); }}/>;
+  // PORTAL v14: los usuarios con rol 'cliente' solo ven su portal (nunca el panel interno)
+  if(user.rol==='cliente') return <ErrorBoundary><PortalCliente user={user} onLogout={logout}/></ErrorBoundary>;
 
   const permisos=user.permisos||{};
   // CONFIG-GUARD v2: Solo Administrador puede acceder a Configuración
@@ -16059,7 +18054,7 @@ const App = () => {
   const modFinal = (mod === 'config' && !esAdmin) ? 'dashboard' : mod;
   const Comp=COMPS[modFinal]||Dashboard;
 
-  return <Ctx.Provider value={{user,tareas,setTareas,clientes,setClientes,equipo,setEquipo,proyectos,setProyectos,facturas,setFacturas,anticipos,setAnticipos,alertas,setAlertas,servicios,setServicios,cargos,setCargos,toast}}>
+  return <Ctx.Provider value={{user,tareas,setTareas,clientes,setClientes,equipo,setEquipo,proyectos,setProyectos,facturas,setFacturas,anticipos,setAnticipos,alertas,setAlertas,servicios,setServicios,cargos,setCargos,toast,requerimientos,setRequerimientos,reqFocus,setReqFocus}}>
     <div className="page">
       {/* Overlay oscuro para móvil — clic cierra el sidebar */}
       <div className={clx('mob-overlay',mobOpen&&'active')} onClick={()=>setMobOpen(false)}/>
@@ -16120,11 +18115,10 @@ const App = () => {
         </div>;
       };
 
-      return <div className="ip-lm-overlay" style={{position:'fixed',inset:0,background:'rgba(0,0,0,.85)',
-        backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',
-        zIndex:9500,display:'flex',alignItems:'center',justifyContent:'center',
+      return <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.85)',backdropFilter:'blur(8px)',
+        zIndex:9500,display:'flex',alignItems:'center',justifyContent:'center',padding:16,
         animation:'notifSlide .35s cubic-bezier(.4,0,.2,1)'}}>
-        <div className="ip-lm-card" style={{
+        <div style={{
           width:'100%',maxWidth:560,maxHeight:'88vh',
           background:'linear-gradient(168deg,#18263a 0%,#111d2e 60%,#0e1825 100%)',
           border:'1px solid rgba(201,168,76,.2)',borderRadius:20,overflow:'hidden',
@@ -16138,7 +18132,7 @@ const App = () => {
             background:'linear-gradient(90deg,#C9A84C,rgba(226,232,240,.85),rgba(201,168,76,.3),transparent)',borderRadius:'20px 20px 0 0'}}/>
 
           {/* Header del modal */}
-          <div className="ip-lm-head" style={{padding:'28px 28px 0',position:'relative',flexShrink:0}}>
+          <div style={{padding:'28px 28px 0',position:'relative'}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
               <div>
                 <p style={{margin:0,fontSize:11,color:'#C9A84C',fontWeight:600,fontFamily:'Century Gothic,sans-serif',
@@ -16159,7 +18153,7 @@ const App = () => {
 
             {/* KPI resumen */}
             <div style={{display:'flex',gap:10,marginTop:18,marginBottom:6}}>
-              {vencidas.length>0&&<div className="ip-silver-card ip-lm-kpi" style={{
+              {vencidas.length>0&&<div className="ip-silver-card" style={{
                 flex:1,padding:'14px 16px',borderRadius:12,position:'relative',overflow:'hidden',
                 background:'linear-gradient(165deg,#1a2e47 0%,#132238 35%,#0e1a2b 100%)',
                 boxShadow:'0 1px 2px rgba(0,0,0,.5),0 4px 8px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.06)',
@@ -16171,7 +18165,7 @@ const App = () => {
                   textShadow:'0 0 20px rgba(248,113,113,.2)'}}>{vencidas.length}</p>
                 <p style={{margin:'4px 0 0',fontSize:10,color:'#94a3b8',fontFamily:'Century Gothic,sans-serif',fontWeight:600,textTransform:'uppercase',letterSpacing:'.4px'}}>Vencida{vencidas.length!==1?'s':''}</p>
               </div>}
-              {pendientes.length>0&&<div className="ip-silver-card ip-lm-kpi" style={{
+              {pendientes.length>0&&<div className="ip-silver-card" style={{
                 flex:1,padding:'14px 16px',borderRadius:12,position:'relative',overflow:'hidden',
                 background:'linear-gradient(165deg,#1a2e47 0%,#132238 35%,#0e1a2b 100%)',
                 boxShadow:'0 1px 2px rgba(0,0,0,.5),0 4px 8px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.06)',
@@ -16187,7 +18181,7 @@ const App = () => {
           </div>
 
           {/* Listados */}
-          <div className="ip-lm-list" style={{padding:'16px 28px 6px',maxHeight:'48vh',overflowY:'auto'}}>
+          <div style={{padding:'16px 28px 6px',maxHeight:'48vh',overflowY:'auto'}}>
             {vencidas.length>0&&<div style={{marginBottom:16}}>
               <p style={{fontSize:11,fontWeight:700,color:'#f87171',textTransform:'uppercase',letterSpacing:'.5px',
                 margin:'0 0 10px',display:'flex',alignItems:'center',gap:7,fontFamily:'Century Gothic,sans-serif'}}>
@@ -16213,8 +18207,8 @@ const App = () => {
           </div>
 
           {/* Footer */}
-          <div className="ip-lm-foot" style={{padding:'14px 28px 22px',borderTop:'1px solid rgba(36,52,71,.5)',
-            display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexShrink:0}}>
+          <div style={{padding:'14px 28px 22px',borderTop:'1px solid rgba(36,52,71,.5)',
+            display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
             <p style={{margin:0,fontSize:11,color:'#475569',fontFamily:'Century Gothic,sans-serif'}}>
               {totalItems} tarea{totalItems!==1?'s':''} requieren atención
             </p>
@@ -16234,6 +18228,15 @@ const App = () => {
         </div>
       </div>;
     })()}
+
+    {/* ── PORTAL v14: AVISO ROJO DE REQUERIMIENTOS NUEVOS ── */}
+    {reqAlert&&!showLoginAlert&&reqPendientes.length>0&&(
+      <ReqAlertaModal items={reqPendientes}
+        onTramitar={r=>{ setReqFocus({id:r.id,accion:'tramitar'}); setMod('requerimientos'); cerrarReqAlert(); }}
+        onVerTodos={()=>{ setMod('requerimientos'); cerrarReqAlert(); }}
+        onSnooze={posponerReqAlert}
+        onClose={cerrarReqAlert}/>
+    )}
 
     <div style={{position:'fixed',top:16,right:16,zIndex:2000,display:'flex',flexDirection:'column',gap:8}}>
       {toasts.map(t=><Toast key={t.id} msg={t.msg} type={t.type} onClose={()=>setToasts(p=>p.filter(x=>x.id!==t.id))}/>)}
