@@ -16891,8 +16891,27 @@ const PcPeriodo = ({value, onChange, meses}) => (
 );
 
 // Hilo de mensajes de una solicitud (cliente ⇄ Integra)
+// ── CRUD del cliente sobre sus solicitudes ──────────────────────────
+// Puede editar o eliminar mientras Integra no haya actuado (sin tarea, sin evento, sin respuesta).
+// Una vez gestionada, la solicitud se conserva para trazabilidad.
+const pcPermisosReq = r => {
+  if(!r) return {editar:false, eliminar:false, motivo:''};
+  const tipo = reqTipo(r);
+  if(tipo==='observacion'){
+    const respondida = r.estado==='respondida' || (r.historial||[]).some(h=>h.estado==='respuesta_equipo');
+    return respondida
+      ? {editar:false, eliminar:false, motivo:'Integra Consultores ya respondió esta observación; se conserva para trazabilidad. Puede seguir la conversación abajo.'}
+      : {editar:true, eliminar:true, motivo:''};
+  }
+  if(r.tareaId)  return {editar:false, eliminar:false, motivo:'Ya fue tramitado y tiene una tarea en curso. Para cambios, envíe una observación sobre la tarea o un nuevo requerimiento.'};
+  if(r.eventoId || r.estado==='agendado') return {editar:false, eliminar:false, motivo:'Ya fue agendada por su consultor. Para moverla, envíe una nueva solicitud o escríbanos.'};
+  if(r.estado==='no_procede') return {editar:false, eliminar:false, motivo:'Fue cerrada por Integra Consultores; se conserva para trazabilidad.'};
+  if(r.estado==='recibido' || r.estado==='info_solicitada') return {editar:true, eliminar:true, motivo:''};
+  return {editar:false, eliminar:false, motivo:'Ya está en gestión por Integra Consultores.'};
+};
+
 const PcHilo = ({req}) => {
-  const msgs = (req?.historial||[]).filter(h=>h.texto && h.estado!=='recibido');
+  const msgs = (req?.historial||[]).filter(h=>h.texto && h.estado!=='recibido' && h.estado!=='editado_cliente');
   if(msgs.length===0) return null;
   return <div style={{display:'flex',flexDirection:'column',gap:8}}>
     {msgs.map((h,i)=>{ const yo = h.estado==='respuesta_cliente' || h.estado==='mensaje_cliente';
@@ -16904,16 +16923,29 @@ const PcHilo = ({req}) => {
 };
 
 // Formulario de nuevo requerimiento (cliente)
-const PcNuevoReq = ({user, reqsAll, prefill, onClose, onCreado, toast}) => {
+const PcNuevoReq = ({user, reqsAll, prefill, editar, onClose, onCreado, toast}) => {
   const hoy = pcHoy();
-  const [f,setF] = useState(()=>({titulo:prefill?.titulo||'', area:prefill?.area||'', prioridad:'media', fechaRequerida:'', desc:prefill?.desc||'', adjuntos:[]}));
+  const [f,setF] = useState(()=>editar
+    ? {titulo:editar.titulo||'', area:editar.areaEspecialidad||'', prioridad:editar.prioridad||'media', fechaRequerida:editar.fechaRequerida||'', desc:editar.desc||'', adjuntos:Array.isArray(editar.adjuntos)?editar.adjuntos:[]}
+    : {titulo:prefill?.titulo||'', area:prefill?.area||'', prioridad:'media', fechaRequerida:'', desc:prefill?.desc||'', adjuntos:[]});
   const [enviando,setEnviando] = useState(false);
   const enviar = () => {
     if(!f.titulo.trim()) return toast('Escriba el asunto del requerimiento','error');
     if(!f.area) return toast('Seleccione el área','error');
     if(!f.desc.trim()) return toast('Describa lo que necesita','error');
-    setEnviando(true);
     const now = new Date().toISOString();
+    if(editar){
+      const vivo = reqsAll.find(x=>x.id===editar.id) || editar;
+      if(!pcPermisosReq(vivo).editar){ toast('Integra Consultores ya gestionó este requerimiento; no se puede editar.','error'); return onClose(); }
+      setEnviando(true);
+      let r = {...vivo, titulo:f.titulo.trim(), areaEspecialidad:f.area, prioridad:f.prioridad, fechaRequerida:f.fechaRequerida,
+        desc:f.desc.trim(), adjuntos:f.adjuntos, editadoEn:now, ...(vivo.estado==='recibido'?{recibidoEn:now}:{})};
+      r = ReqSvc.evento(r, 'editado_cliente', 'El cliente modificó el requerimiento.', user.nombre||'Cliente');
+      DB.set('requerimientos', r).catch(()=>{});
+      onCreado(r);
+      return toast(r.numero+' actualizado. Integra Consultores verá los cambios.','success');
+    }
+    setEnviando(true);
     const r = {
       id: uid(), tipo:'requerimiento', numero: ReqSvc.nextNumero(reqsAll,'REQ'),
       clienteId: user.clienteId, clienteNombre: user.clienteNombre||'',
@@ -16931,8 +16963,8 @@ const PcNuevoReq = ({user, reqsAll, prefill, onClose, onCreado, toast}) => {
     <form role="dialog" aria-modal="true" aria-labelledby="pc-nuevo-titulo" className="modal modal-lg fade" onSubmit={e=>{e.preventDefault(); enviar();}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12,marginBottom:6}}>
         <div>
-          <h3 id="pc-nuevo-titulo" className="sy" style={{margin:0,fontSize:16,fontWeight:700,color:'#fff'}}>Nuevo requerimiento</h3>
-          <p style={{margin:'4px 0 0',fontSize:12,color:PC_TXT.soft}}>Llega de inmediato al equipo de Integra Consultores.</p>
+          <h3 id="pc-nuevo-titulo" className="sy" style={{margin:0,fontSize:16,fontWeight:700,color:'#fff'}}>{editar?'Editar requerimiento '+editar.numero:'Nuevo requerimiento'}</h3>
+          <p style={{margin:'4px 0 0',fontSize:12,color:PC_TXT.soft}}>{editar?'Los cambios llegan de inmediato al equipo de Integra Consultores.':'Llega de inmediato al equipo de Integra Consultores.'}</p>
         </div>
         <button type="button" aria-label="Cerrar" onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',color:'#94a3b8',padding:4}}><Ico n="close" s={18}/></button>
       </div>
@@ -16979,24 +17011,39 @@ const PcNuevoReq = ({user, reqsAll, prefill, onClose, onCreado, toast}) => {
       </div>
       <div style={{display:'flex',justifyContent:'flex-end',gap:10,marginTop:20,paddingTop:16,borderTop:'1px solid #243447'}}>
         <button type="button" onClick={onClose} className="btn btn-ghost">Cancelar</button>
-        <button type="submit" disabled={enviando} className="btn btn-p"><Ico n="send" s={14}/>{enviando?'Enviando…':'Enviar requerimiento'}</button>
+        <button type="submit" disabled={enviando} className="btn btn-p"><Ico n={editar?'check':'send'} s={14}/>{enviando?(editar?'Guardando…':'Enviando…'):(editar?'Guardar cambios':'Enviar requerimiento')}</button>
       </div>
     </form>
   </div>;
 };
 
 // Solicitud de reunión / capacitación (cliente) → queda "Pendiente" hasta que el consultor la agenda
-const PcSolicitudAgenda = ({user, reqsAll, prefill, onClose, onCreado, toast}) => {
+const PcSolicitudAgenda = ({user, reqsAll, prefill, editar, onClose, onCreado, toast}) => {
   const hoy = pcHoy();
-  const [f,setF] = useState(()=>({subtipo:prefill?.subtipo==='capacitacion'?'capacitacion':'reunion', tema:'', fecha:prefill?.fecha&&prefill.fecha>=hoy?prefill.fecha:'', hora:'', modalidad:'presencial', asistentes:'', area:'', desc:''}));
+  const [f,setF] = useState(()=>editar ? {subtipo:editar.subtipo==='capacitacion'?'capacitacion':'reunion',
+      tema:String(editar.titulo||'').replace(/^Solicitud de (reunión|capacitación):\s*/i,''), fecha:editar.fechaPropuesta||'', hora:editar.horaPropuesta||'',
+      modalidad:editar.modalidad||'presencial', asistentes:editar.asistentes||'', area:editar.areaEspecialidad||'', desc:editar.desc||''}
+    : ({subtipo:prefill?.subtipo==='capacitacion'?'capacitacion':'reunion', tema:'', fecha:prefill?.fecha&&prefill.fecha>=hoy?prefill.fecha:'', hora:'', modalidad:'presencial', asistentes:'', area:'', desc:''}));
   const [enviando,setEnviando] = useState(false);
   const up = k => e => setF(p=>({...p,[k]:e.target.value}));
   const esReu = f.subtipo==='reunion';
   const enviar = () => {
     if(!f.tema.trim()) return toast('Escriba el tema de la '+(esReu?'reunión':'capacitación'),'error');
     if(!f.fecha) return toast('Seleccione la fecha que propone','error');
-    setEnviando(true);
     const now = new Date().toISOString();
+    if(editar){
+      const vivo = reqsAll.find(x=>x.id===editar.id) || editar;
+      if(!pcPermisosReq(vivo).editar){ toast('Su consultor ya agendó esta solicitud; no se puede editar.','error'); return onClose(); }
+      setEnviando(true);
+      let r = {...vivo, subtipo:f.subtipo, titulo:'Solicitud de '+(esReu?'reunión':'capacitación')+': '+f.tema.trim(),
+        areaEspecialidad:f.area, fechaRequerida:f.fecha, fechaPropuesta:f.fecha, horaPropuesta:f.hora, modalidad:f.modalidad,
+        asistentes:f.asistentes, desc:f.desc.trim(), editadoEn:now, ...(vivo.estado==='recibido'?{recibidoEn:now}:{})};
+      r = ReqSvc.evento(r, 'editado_cliente', 'El cliente modificó la solicitud.', user.nombre||'Cliente');
+      DB.set('requerimientos', r).catch(()=>{});
+      onCreado(r);
+      return toast(r.numero+' actualizada. Sigue pendiente de agendar.','success');
+    }
+    setEnviando(true);
     const r = {
       id: uid(), tipo:'agenda', subtipo:f.subtipo, numero: ReqSvc.nextNumero(reqsAll,'AGD'),
       clienteId: user.clienteId, clienteNombre: user.clienteNombre||'',
@@ -17015,7 +17062,7 @@ const PcSolicitudAgenda = ({user, reqsAll, prefill, onClose, onCreado, toast}) =
     <form role="dialog" aria-modal="true" aria-labelledby="pc-agd-titulo" className="modal modal-lg fade" onSubmit={e=>{e.preventDefault(); enviar();}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12,marginBottom:6}}>
         <div>
-          <h3 id="pc-agd-titulo" className="sy" style={{margin:0,fontSize:16,fontWeight:700,color:'#fff'}}>Solicitar {esReu?'reunión':'capacitación'}</h3>
+          <h3 id="pc-agd-titulo" className="sy" style={{margin:0,fontSize:16,fontWeight:700,color:'#fff'}}>{editar?'Editar solicitud '+editar.numero:'Solicitar '+(esReu?'reunión':'capacitación')}</h3>
           <p style={{margin:'4px 0 0',fontSize:12,color:PC_TXT.soft}}>Su consultor confirma la fecha. Verá el estado “Pendiente” y luego “Agendado”.</p>
         </div>
         <button type="button" aria-label="Cerrar" onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',color:'#94a3b8',padding:4}}><Ico n="close" s={18}/></button>
@@ -17053,7 +17100,7 @@ const PcSolicitudAgenda = ({user, reqsAll, prefill, onClose, onCreado, toast}) =
       </div>
       <div style={{display:'flex',justifyContent:'flex-end',gap:10,marginTop:20,paddingTop:16,borderTop:'1px solid #243447'}}>
         <button type="button" onClick={onClose} className="btn btn-ghost">Cancelar</button>
-        <button type="submit" disabled={enviando} className="btn btn-p"><Ico n="send" s={14}/>{enviando?'Enviando…':'Enviar solicitud'}</button>
+        <button type="submit" disabled={enviando} className="btn btn-p"><Ico n={editar?'check':'send'} s={14}/>{enviando?(editar?'Guardando…':'Enviando…'):(editar?'Guardar cambios':'Enviar solicitud')}</button>
       </div>
     </form>
   </div>;
@@ -17390,8 +17437,11 @@ const PcCalendario = ({tareas, eventos, solicitudes, onSolicitar, onVerTarea}) =
   </div>;
 };
 
-const PcRequerimientos = ({user, reqs, tareas, onNuevo, onSolicitar, onActualizar, verSoportes, toast}) => {
+const PcRequerimientos = ({user, reqs, tareas, onNuevo, onSolicitar, onActualizar, onEditar, onEliminado, verSoportes, toast}) => {
   const [selId,setSelId] = useState(null);
+  const [borrar,setBorrar] = useState(null);   // solicitud a eliminar
+  const [editObs,setEditObs] = useState(null); // {id, texto} edición del último mensaje de una observación
+  const refDetalle = useRef(null);
   const [resp,setResp] = useState('');
   const [tipo,setTipo] = useState('todos');
   const [periodo,setPeriodo] = useState('actual');
@@ -17418,6 +17468,46 @@ const PcRequerimientos = ({user, reqs, tareas, onNuevo, onSolicitar, onActualiza
     onActualizar(r2); setResp('');
     toast('Mensaje enviado a Integra Consultores','success');
   };
+  // ── Visualizar / Editar / Eliminar ──
+  const visualizar = r => { setSelId(r.id); setTimeout(()=>refDetalle.current?.scrollIntoView({behavior:'smooth',block:'nearest'}),40); };
+  const editar = r => {
+    const pm = pcPermisosReq(r);
+    if(!pm.editar) return toast(pm.motivo,'warning');
+    if(reqTipo(r)==='observacion'){
+      const ult = [...(r.historial||[])].reverse().find(h=>h.estado==='mensaje_cliente');
+      return setEditObs({id:r.id, texto: ult?.texto || r.ultimoMensajeCliente || r.desc || ''});
+    }
+    onEditar(r);
+  };
+  const guardarObs = () => {
+    const r = reqs.find(x=>x.id===editObs?.id);
+    if(!r) return setEditObs(null);
+    if(!pcPermisosReq(r).editar){ setEditObs(null); return toast('Integra Consultores ya respondió; no se puede editar.','error'); }
+    const tx = editObs.texto.trim();
+    if(!tx) return toast('Escriba su observación','error');
+    const now = new Date().toISOString();
+    const hist = [...(r.historial||[])];
+    let i = hist.length-1; while(i>=0 && hist[i].estado!=='mensaje_cliente') i--;
+    if(i>=0) hist[i] = {...hist[i], texto:tx, editadoEn:now};
+    const primero = hist.findIndex(h=>h.estado==='mensaje_cliente')===i;
+    let r2 = {...r, historial:hist, ultimoMensajeCliente:tx, ...(primero?{desc:tx}:{}), editadoEn:now, recibidoEn:now};
+    r2 = ReqSvc.evento(r2, 'editado_cliente', 'El cliente modificó su observación.', user.nombre||'Cliente');
+    DB.set('requerimientos', r2).catch(()=>{});
+    onActualizar(r2); setEditObs(null);
+    toast(r.numero+' actualizada','success');
+  };
+  const pedirBorrado = r => { const pm=pcPermisosReq(r); if(!pm.eliminar) return toast(pm.motivo,'warning'); setBorrar(r); };
+  const eliminar = () => {
+    const r = reqs.find(x=>x.id===borrar?.id);
+    setBorrar(null);
+    if(!r) return;
+    if(!pcPermisosReq(r).eliminar) return toast('Integra Consultores ya gestionó esta solicitud; se conserva para trazabilidad.','error');
+    DB.del('requerimientos', r.id).catch(()=>{});
+    onEliminado(r.id);
+    if(selId===r.id) setSelId(null);
+    toast(r.numero+' eliminado','success');
+  };
+
   const tSel = sel?.tareaId ? tareas.find(t=>t.id===sel.tareaId) : null;
   const tObs = sel && reqTipo(sel)==='observacion' ? tareas.find(t=>t.id===sel.tareaObservadaId) : null;
   const evSel = sel ? reqEventoDe(sel, tareas) : null;
@@ -17447,16 +17537,33 @@ const PcRequerimientos = ({user, reqs, tareas, onNuevo, onSolicitar, onActualiza
       : <div style={{display:'flex',gap:14,flexWrap:'wrap',alignItems:'flex-start'}}>
           <div className="dash-card" style={{flex:'999 1 480px',minWidth:0}}>
             <PcTitulo ico="flag">Mis solicitudes</PcTitulo>
-            {ordenados.map(r=>{ const e=reqEstadoCliente(r,tareas); const activo=sel?.id===r.id; const tp=REQ_TIPOS[reqTipo(r)];
-              return <button key={r.id} onClick={()=>setSelId(r.id)} aria-pressed={activo} className={clx('si',activo&&'active')}
-                style={{marginBottom:6,padding:'11px 12px',gap:12,flexWrap:'wrap',border:activo?undefined:'1px solid rgba(36,52,71,.6)',background:activo?undefined:'linear-gradient(135deg,#0f1923 0%,#121e2d 100%)'}}>
+            {ordenados.map(r=>{ const e=reqEstadoCliente(r,tareas); const activo=sel?.id===r.id; const tp=REQ_TIPOS[reqTipo(r)]; const pm=pcPermisosReq(r);
+              const acc = {width:28,height:28,padding:0,justifyContent:'center'};
+              return <div key={r.id} role="button" tabIndex={0} onClick={()=>visualizar(r)} aria-pressed={activo} className={clx('si',activo&&'active')}
+                onKeyDown={ev=>{ if(ev.target===ev.currentTarget&&(ev.key==='Enter'||ev.key===' ')){ ev.preventDefault(); visualizar(r); } }}
+                style={{marginBottom:6,padding:'9px 10px 9px 12px',gap:12,flexWrap:'wrap',border:activo?undefined:'1px solid rgba(36,52,71,.6)',background:activo?undefined:'linear-gradient(135deg,#0f1923 0%,#121e2d 100%)'}}>
                 <Ico n={tp.ico} s={14} c={activo?'#C9A84C':'#64748b'}/>
                 <span style={{fontSize:11,color:activo?'#C9A84C':'#64748b',width:72,flexShrink:0,fontWeight:600}}>{r.numero}</span>
-                <span style={{flex:'1 1 180px',minWidth:0,fontWeight:activo?600:500,color:activo?'#fff':PC_TXT.ink,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontFamily:PC_FONT}}>{r.titulo}</span>
+                <span style={{flex:'1 1 160px',minWidth:0,fontWeight:activo?600:500,color:activo?'#fff':PC_TXT.ink,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontFamily:PC_FONT}}>{r.titulo}</span>
                 <PcChip tone={e.tone}>{e.label}</PcChip>
-              </button>; })}
+                <span style={{display:'flex',gap:4,flexShrink:0}} onClick={ev=>ev.stopPropagation()}>
+                  <button type="button" className="btn btn-ghost btn-sm" style={acc} title="Visualizar" aria-label={'Visualizar '+r.numero} onClick={()=>visualizar(r)}><Ico n="eye" s={13}/></button>
+                  <button type="button" className="btn btn-ghost btn-sm" style={{...acc,opacity:pm.editar?1:.35}} title={pm.editar?'Editar':pm.motivo} aria-label={'Editar '+r.numero} aria-disabled={!pm.editar} onClick={()=>editar(r)}><Ico n="edit" s={13}/></button>
+                  <button type="button" className="btn btn-ghost btn-sm" style={{...acc,opacity:pm.eliminar?1:.35,color:pm.eliminar?'#f87171':undefined}} title={pm.eliminar?'Eliminar':pm.motivo} aria-label={'Eliminar '+r.numero} aria-disabled={!pm.eliminar} onClick={()=>pedirBorrado(r)}><Ico n="trash" s={13}/></button>
+                </span>
+              </div>; })}
           </div>
-          {sel&&<div className="dash-card fade" key={sel.id} style={{flex:'1 1 340px',minWidth:0,display:'flex',flexDirection:'column',gap:16}}>
+          {sel&&<div className="dash-card fade" key={sel.id} ref={refDetalle} style={{flex:'1 1 340px',minWidth:0,display:'flex',flexDirection:'column',gap:16}}>
+            {(()=>{ const pm=pcPermisosReq(sel);
+              return pm.editar||pm.eliminar
+                ? <div style={{display:'flex',justifyContent:'flex-end',gap:6,marginBottom:-6}}>
+                    {pm.editar&&<button className="btn btn-ghost btn-sm" onClick={()=>editar(sel)}><Ico n="edit" s={12}/>Editar</button>}
+                    {pm.eliminar&&<button className="btn btn-ghost btn-sm" style={{color:'#f87171',borderColor:'rgba(248,113,113,.3)'}} onClick={()=>pedirBorrado(sel)}><Ico n="trash" s={12}/>Eliminar</button>}
+                  </div>
+                : <div style={{display:'flex',gap:8,alignItems:'flex-start',padding:'8px 10px',borderRadius:8,background:'rgba(30,58,95,.3)',border:'1px solid rgba(147,197,253,.15)',fontSize:11.5,color:'#93c5fd',lineHeight:1.5,marginBottom:-4}}>
+                    <Ico n="lock" s={13}/><span>{pm.motivo}</span>
+                  </div>; })()}
+            {sel.editadoEn&&<span style={{fontSize:10.5,color:'#64748b',marginBottom:-10}}>Editado {reqFechaHora(sel.editadoEn)}</span>}
             <div>
               <span style={{fontSize:11,color:'#C9A84C',fontWeight:600}}>{REQ_TIPOS[reqTipo(sel)].l} · {sel.numero} · enviado {reqFechaHora(sel.creadoEn)}</span>
               <h3 style={{margin:'4px 0 0',fontSize:16,color:'#fff',fontFamily:PC_FONT}}>{sel.titulo}</h3>
@@ -17503,6 +17610,24 @@ const PcRequerimientos = ({user, reqs, tareas, onNuevo, onSolicitar, onActualiza
             </div>}
           </div>}
         </div>}
+
+    {editObs&&<div className="overlay" onMouseDown={e=>e.target===e.currentTarget&&setEditObs(null)}>
+      <div role="dialog" aria-modal="true" aria-labelledby="pc-edobs-t" className="modal fade">
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12}}>
+          <h3 id="pc-edobs-t" className="sy" style={{margin:0,fontSize:16,fontWeight:700,color:'#fff'}}>Editar observación</h3>
+          <button type="button" aria-label="Cerrar" onClick={()=>setEditObs(null)} style={{background:'none',border:'none',cursor:'pointer',color:'#94a3b8',padding:4}}><Ico n="close" s={18}/></button>
+        </div>
+        <div className="gline" style={{marginTop:12}}/>
+        <label style={pcLbl} htmlFor="pc-edobs">Su mensaje</label>
+        <textarea id="pc-edobs" className="inp" rows={4} maxLength={1200} value={editObs.texto} onChange={e=>setEditObs(p=>({...p,texto:e.target.value}))}/>
+        <p style={{margin:'8px 0 0',fontSize:11,color:'#64748b'}}>Puede editarla mientras Integra Consultores no la haya respondido.</p>
+        <div style={{display:'flex',justifyContent:'flex-end',gap:10,marginTop:16}}>
+          <button type="button" className="btn btn-ghost" onClick={()=>setEditObs(null)}>Cancelar</button>
+          <button type="button" className="btn btn-p" onClick={guardarObs}><Ico n="check" s={14}/>Guardar cambios</button>
+        </div>
+      </div>
+    </div>}
+    {borrar&&<Confirm msg={`¿Eliminar ${borrar.numero} · ${borrar.titulo}? Se retirará también de la bandeja de Integra Consultores. Esta acción no se puede deshacer.`} onOk={eliminar} onCancel={()=>setBorrar(null)}/>}
   </div>;
 };
 
@@ -17626,14 +17751,16 @@ const PortalCliente = ({user, onLogout}) => {
               ? <PcDashboard key="d" user={u} logo={logo} tareas={tareas} eventos={eventos} reqs={reqs} onNav={setVista} onNuevo={abrirNuevo} onVerTarea={verTarea} verSoportes={verSoportes}/>
             : vista==='calendario'
               ? <PcCalendario key="c" tareas={tareas} eventos={eventos} solicitudes={solicitudesAgenda} onSolicitar={abrirAgenda} onVerTarea={verTarea}/>
-              : <PcRequerimientos key="r" user={u} reqs={reqs} tareas={tareasConEventos} onNuevo={abrirNuevo} onSolicitar={abrirAgenda} onActualizar={upsertReq} verSoportes={verSoportes} toast={toast}/>}
+              : <PcRequerimientos key="r" user={u} reqs={reqs} tareas={tareasConEventos} onNuevo={abrirNuevo} onSolicitar={abrirAgenda} onActualizar={upsertReq}
+                  onEditar={r=>reqTipo(r)==='agenda'?setAgenda({prefill:null,editar:r}):setNuevo({prefill:null,editar:r})}
+                  onEliminado={id=>setReqsAll(prev=>prev.filter(x=>x.id!==id))} verSoportes={verSoportes} toast={toast}/>}
         </div>
       </div>
     </div>
 
-    {nuevo&&<PcNuevoReq user={u} reqsAll={reqsAll} prefill={nuevo.prefill} toast={toast}
+    {nuevo&&<PcNuevoReq user={u} reqsAll={reqsAll} prefill={nuevo.prefill} editar={nuevo.editar||null} toast={toast}
       onClose={()=>setNuevo(null)} onCreado={r=>{ upsertReq(r); setNuevo(null); setVista('requerimientos'); }}/>}
-    {agenda&&<PcSolicitudAgenda user={u} reqsAll={reqsAll} prefill={agenda.prefill} toast={toast}
+    {agenda&&<PcSolicitudAgenda user={u} reqsAll={reqsAll} prefill={agenda.prefill} editar={agenda.editar||null} toast={toast}
       onClose={()=>setAgenda(null)} onCreado={r=>{ upsertReq(r); setAgenda(null); }}/>}
     {tareaViva&&<PcTareaModal tarea={tareaViva} user={u} reqsAll={reqsAll} verSoportes={verSoportes} toast={toast}
       onClose={()=>setTareaSel(null)} onEnviado={upsertReq}/>}
