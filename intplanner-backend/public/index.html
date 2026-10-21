@@ -2840,6 +2840,177 @@ const ActBtns = ({onEdit,onDel,extra}) => (
 );
 
 // ── LOGIN ─────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════
+// PROTECCIÓN DE DATOS PERSONALES — Ley 1581 de 2012 (habeas data)
+// Decreto 1377 de 2013 (compilado en el Decreto Único 1074 de 2015).
+// · Aviso de privacidad en la pantalla de inicio (parte inferior).
+// · Autorización previa, expresa e informada antes de iniciar sesión.
+// · Prueba de la autorización: versión + fecha/hora en el perfil del usuario.
+// Si cambia el texto de la política, suba VERSION para volver a solicitarla.
+// ══════════════════════════════════════════════════════════════════════
+const HabeasSvc = {
+  VERSION: 'HD-2026-10',
+  KEY: 'ip_habeas_data',
+  leer: () => { try { return JSON.parse(localStorage.getItem(HabeasSvc.KEY)||'null'); } catch(_){ return null; } },
+  aceptado: () => { const h = HabeasSvc.leer(); return !!(h && h.version===HabeasSvc.VERSION && h.aceptadoEn); },
+  aceptar: (modo) => {
+    const reg = {version:HabeasSvc.VERSION, aceptadoEn:new Date().toISOString(), modo:modo||'equipo',
+      agente: (typeof navigator!=='undefined' && navigator.userAgent) ? String(navigator.userAgent).slice(0,180) : ''};
+    try { localStorage.setItem(HabeasSvc.KEY, JSON.stringify(reg)); } catch(_){}
+    try { window.dispatchEvent(new CustomEvent('ip-habeas-aceptado', {detail:reg})); } catch(_){}
+    return reg;
+  },
+  // Conserva la prueba de la autorización en el perfil (Decreto 1377/2013, art. 8)
+  registrar: (perfil) => {
+    if(!perfil || !perfil.id || !HabeasSvc.aceptado()) return perfil;
+    const h = HabeasSvc.leer();
+    const previo = perfil.habeasData;
+    if(previo && previo.version===h.version) return perfil;
+    const habeasData = {version:h.version, aceptadoEn:h.aceptadoEn, modo:h.modo, agente:h.agente, historial:[...((previo&&previo.historial)||[]), ...(previo?[{version:previo.version, aceptadoEn:previo.aceptadoEn}]:[])].slice(-10)};
+    const actualizado = {...perfil, habeasData};
+    try { localStorage.setItem('ip_session', JSON.stringify(actualizado)); } catch(_){}
+    try { if(FIREBASE_OK) _db.collection('usuarios').doc(perfil.id).set(actualizado, {merge:true}).catch(()=>{}); } catch(_){}
+    return actualizado;
+  },
+};
+window.HabeasSvc = HabeasSvc;
+
+// Texto de la política (usa los datos de Configuración › Empresa)
+const HabeasPolitica = ({cfg}) => {
+  const emp = cfg?.empresa || 'Integra Consultores';
+  const correo = cfg?.email || cfg?.adminEmail || '';
+  const H = ({n,children}) => <h4 style={{margin:'18px 0 6px',fontSize:13,color:'#C9A84C',fontFamily:'Century Gothic,sans-serif'}}>{n}. {children}</h4>;
+  const P = ({children}) => <p style={{margin:'0 0 8px',fontSize:12.5,color:'#cbd5e1',lineHeight:1.65}}>{children}</p>;
+  const LI = ({children}) => <li style={{fontSize:12.5,color:'#cbd5e1',lineHeight:1.6,marginBottom:4}}>{children}</li>;
+  return <div>
+    <P>En cumplimiento del artículo 15 de la Constitución Política, la Ley Estatutaria 1581 de 2012 y el Decreto 1377 de 2013 (compilado en el Decreto 1074 de 2015), {emp} informa la forma en que trata los datos personales registrados en la plataforma INTPLANNER PRO.</P>
+    <H n="1">Responsable del tratamiento</H>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:'4px 16px',padding:'10px 12px',borderRadius:8,background:'#0f1923',border:'1px solid #243447',fontSize:12,color:'#cbd5e1'}}>
+      <span><b style={{color:'#94a3b8'}}>Razón social:</b> {emp}</span>
+      <span><b style={{color:'#94a3b8'}}>NIT:</b> {cfg?.nit||'—'}</span>
+      <span><b style={{color:'#94a3b8'}}>Dirección:</b> {cfg?.direccion||'—'}</span>
+      <span><b style={{color:'#94a3b8'}}>Teléfono:</b> {cfg?.telefono||'—'}</span>
+      <span style={{gridColumn:'1 / -1'}}><b style={{color:'#94a3b8'}}>Canal para ejercer sus derechos:</b> {correo||'—'}</span>
+    </div>
+    <H n="2">Datos que se tratan</H>
+    <ul style={{margin:'0 0 8px',paddingLeft:18}}>
+      <LI>Identificación y contacto: nombres, apellidos, cargo, correo electrónico y teléfono.</LI>
+      <LI>Credenciales de acceso (usuario y contraseña, esta última almacenada de forma no legible) y registros técnicos de la sesión.</LI>
+      <LI>Información de la gestión: tareas, requerimientos, observaciones, agenda, mensajes y documentos adjuntos.</LI>
+    </ul>
+    <H n="3">Finalidades</H>
+    <ul style={{margin:'0 0 8px',paddingLeft:18}}>
+      <LI>Prestar los servicios contratados y hacer seguimiento a tareas, requerimientos y agenda.</LI>
+      <LI>Comunicarse con usted sobre avances, solicitudes, reuniones y capacitaciones.</LI>
+      <LI>Controlar el acceso, la seguridad de la información y la trazabilidad (auditoría) de las acciones.</LI>
+      <LI>Cumplir obligaciones legales, contractuales y requerimientos de autoridades competentes.</LI>
+    </ul>
+    <H n="4">Datos de terceros: {emp} como Encargado del tratamiento</H>
+    <P>Cuando la empresa cliente registre o adjunte datos personales de sus trabajadores, contratistas u otras personas, la empresa cliente actúa como Responsable y {emp} como Encargado, por cuenta de aquella (Ley 1581 de 2012, art. 3, literales d y e; art. 18). En consecuencia:</P>
+    <ul style={{margin:'0 0 8px',paddingLeft:18}}>
+      <LI>La empresa cliente declara que cuenta con la autorización previa de esos titulares y que les informó las finalidades.</LI>
+      <LI>{emp} trata esos datos únicamente para ejecutar el servicio encomendado, guarda confidencialidad y aplica medidas de seguridad.</LI>
+      <LI>Al terminar la relación, los datos se devuelven o se suprimen según lo pactado, salvo deber legal de conservación.</LI>
+    </ul>
+    <H n="5">Datos sensibles y de menores</H>
+    <P>Usted no está obligado a suministrar datos sensibles (art. 6) ni a responder preguntas sobre ellos. Si un servicio requiere datos de salud, por ejemplo en gestión de seguridad y salud en el trabajo, se solicitará autorización explícita y se tratarán con reserva. Los datos de niños, niñas y adolescentes solo se tratarán respetando su interés superior (art. 7).</P>
+    <H n="6">Sus derechos como titular (art. 8)</H>
+    <ul style={{margin:'0 0 8px',paddingLeft:18}}>
+      <LI>Conocer, actualizar y rectificar sus datos personales.</LI>
+      <LI>Solicitar prueba de la autorización otorgada.</LI>
+      <LI>Ser informado sobre el uso que se ha dado a sus datos.</LI>
+      <LI>Presentar quejas ante la Superintendencia de Industria y Comercio (SIC).</LI>
+      <LI>Revocar la autorización o solicitar la supresión de sus datos cuando no exista un deber legal o contractual de conservarlos.</LI>
+      <LI>Acceder en forma gratuita a sus datos personales.</LI>
+    </ul>
+    <H n="7">Consultas y reclamos</H>
+    <P>Escriba al canal indicado en el numeral 1. Las consultas se atienden en máximo diez (10) días hábiles, prorrogables por cinco (5) más (art. 14). Los reclamos, en máximo quince (15) días hábiles, prorrogables por ocho (8) más (art. 15). Antes de acudir a la SIC, debe agotar el trámite de consulta o reclamo ante el Responsable (art. 16).</P>
+    <H n="8">Seguridad y conservación</H>
+    <P>El acceso a la plataforma requiere usuario y contraseña y se controla por roles y permisos. Cada acción relevante queda registrada con fecha y responsable. Los datos se conservan mientras dure la relación contractual y durante los plazos que exija la ley.</P>
+    <H n="9">Autorización y vigencia</H>
+    <P>Al aceptar, usted otorga autorización previa, expresa e informada para el tratamiento descrito. La plataforma conserva como prueba la versión de esta política y la fecha y hora de su aceptación. Versión {HabeasSvc.VERSION}. Cualquier cambio sustancial le será informado y se solicitará de nuevo su autorización.</P>
+  </div>;
+};
+
+// Aviso inferior en la pantalla de inicio + política completa
+const HabeasDataAviso = ({cfg, modo}) => {
+  const [ok,setOk] = useState(()=>HabeasSvc.aceptado());
+  const [check,setCheck] = useState(false);
+  const [ver,setVer] = useState(false);
+  const [resaltar,setResaltar] = useState(false);
+  const reg = ok ? HabeasSvc.leer() : null;
+  const emp = cfg?.empresa || 'Integra Consultores';
+  const esCliente = modo==='cliente';
+  useEffect(()=>{
+    // El formulario pide abrir el aviso si se intenta ingresar sin autorizar
+    const abrir = () => { setResaltar(true); setTimeout(()=>setResaltar(false), 1600); };
+    window.addEventListener('ip-habeas-abrir', abrir);
+    return () => window.removeEventListener('ip-habeas-abrir', abrir);
+  },[]);
+  const aceptar = () => { if(!check) return setResaltar(true); HabeasSvc.aceptar(modo); setOk(true); setVer(false); };
+
+  return <>
+    <style>{`@keyframes hdUp{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}@keyframes hdPulse{0%,100%{box-shadow:0 -8px 40px rgba(0,0,0,.55),0 0 0 1px rgba(201,168,76,.35)}50%{box-shadow:0 -8px 40px rgba(0,0,0,.55),0 0 0 3px rgba(248,113,113,.7)}}`}</style>
+    {!ok
+      ? <div role="region" aria-label="Aviso de protección de datos personales" style={{position:'fixed',left:16,right:16,bottom:16,zIndex:900,display:'flex',justifyContent:'center',pointerEvents:'none'}}>
+          <div style={{pointerEvents:'auto',width:'100%',maxWidth:980,background:'linear-gradient(165deg,rgba(26,46,71,.97),rgba(14,26,43,.98))',backdropFilter:'blur(10px)',
+            border:'1px solid rgba(201,168,76,.35)',borderRadius:16,padding:'16px 20px',boxSizing:'border-box',display:'flex',gap:16,alignItems:'center',flexWrap:'wrap',
+            animation:resaltar?'hdPulse .8s ease 2':'hdUp .45s cubic-bezier(.4,0,.2,1)',boxShadow:'0 -8px 40px rgba(0,0,0,.55),0 0 0 1px rgba(201,168,76,.35)',fontFamily:'Century Gothic,sans-serif'}}>
+            <div style={{width:42,height:42,borderRadius:11,background:'rgba(201,168,76,.12)',border:'1px solid rgba(201,168,76,.3)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C9A84C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+            </div>
+            <div style={{flex:'1 1 380px',minWidth:0}}>
+              <p style={{margin:0,fontSize:13.5,fontWeight:700,color:'#fff'}}>Protección de datos personales · Ley 1581 de 2012</p>
+              <p style={{margin:'4px 0 0',fontSize:12,color:'#94a3b8',lineHeight:1.55}}>
+                {emp} tratará sus datos de identificación, contacto y uso de la plataforma para prestar los servicios, gestionar {esCliente?'sus tareas, requerimientos y agenda':'el acceso, las tareas y la trazabilidad'} y garantizar la seguridad.{esCliente?' Respecto de los datos de terceros que su empresa registre, actuamos como Encargado del tratamiento.':''} Puede conocer, actualizar, rectificar y suprimir sus datos, o revocar esta autorización.
+              </p>
+              <label style={{display:'flex',gap:8,alignItems:'flex-start',marginTop:8,fontSize:12,color:resaltar&&!check?'#fca5a5':'#cbd5e1',cursor:'pointer'}}>
+                <input type="checkbox" checked={check} onChange={e=>setCheck(e.target.checked)} style={{accentColor:'#C9A84C',width:15,height:15,marginTop:1,flexShrink:0}}/>
+                He leído la política de tratamiento de datos y autorizo de manera previa, expresa e informada el tratamiento de mis datos personales.
+              </label>
+            </div>
+            <div style={{display:'flex',gap:8,flexWrap:'wrap',flexShrink:0}}>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={()=>setVer(true)}><Ico n="eye" s={13}/>Leer política</button>
+              <button type="button" className="btn btn-g btn-sm" onClick={aceptar} disabled={!check} style={!check?{opacity:.55}:undefined}><Ico n="check" s={13}/>Acepto y autorizo</button>
+            </div>
+          </div>
+        </div>
+      : <div style={{position:'fixed',left:0,right:0,bottom:10,zIndex:900,display:'flex',justifyContent:'center',pointerEvents:'none'}}>
+          <button type="button" onClick={()=>setVer(true)} style={{pointerEvents:'auto',display:'inline-flex',alignItems:'center',gap:6,fontSize:10.5,color:'#4d6480',background:'rgba(15,25,35,.75)',
+            border:'1px solid rgba(36,52,71,.7)',borderRadius:99,padding:'5px 12px',cursor:'pointer',fontFamily:'Century Gothic,sans-serif'}}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.4"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Datos protegidos · Ley 1581 de 2012 · autorizado {reg?.aceptadoEn?new Date(reg.aceptadoEn).toLocaleDateString('es-CO'):''} · Ver política
+          </button>
+        </div>}
+
+    {ver&&<div className="overlay" style={{zIndex:1200}} onMouseDown={e=>e.target===e.currentTarget&&setVer(false)}>
+      <div role="dialog" aria-modal="true" aria-labelledby="hd-titulo" className="modal modal-lg fade" style={{maxHeight:'88vh'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
+          <div>
+            <h3 id="hd-titulo" className="sy" style={{margin:0,fontSize:16,fontWeight:700,color:'#fff'}}>Política de tratamiento de datos personales</h3>
+            <p style={{margin:'4px 0 0',fontSize:11.5,color:'#64748b'}}>Ley 1581 de 2012 · Decreto 1377 de 2013 · Versión {HabeasSvc.VERSION}</p>
+          </div>
+          <button type="button" aria-label="Cerrar" onClick={()=>setVer(false)} style={{background:'none',border:'none',cursor:'pointer',color:'#94a3b8',padding:4}}><Ico n="close" s={18}/></button>
+        </div>
+        <div className="gline" style={{marginTop:12}}/>
+        <HabeasPolitica cfg={cfg}/>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,flexWrap:'wrap',marginTop:18,paddingTop:14,borderTop:'1px solid #243447'}}>
+          {ok
+            ? <span style={{fontSize:11.5,color:'#4ade80',display:'flex',alignItems:'center',gap:6}}><Ico n="check" s={13}/>Autorizó el {new Date(reg.aceptadoEn).toLocaleString('es-CO')}</span>
+            : <label style={{display:'flex',gap:8,alignItems:'center',fontSize:12,color:'#cbd5e1',cursor:'pointer'}}>
+                <input type="checkbox" checked={check} onChange={e=>setCheck(e.target.checked)} style={{accentColor:'#C9A84C',width:15,height:15}}/>
+                He leído y autorizo el tratamiento de mis datos
+              </label>}
+          <div style={{display:'flex',gap:8}}>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={()=>setVer(false)}>Cerrar</button>
+            {!ok&&<button type="button" className="btn btn-g btn-sm" onClick={aceptar} disabled={!check} style={!check?{opacity:.55}:undefined}><Ico n="check" s={13}/>Acepto y autorizo</button>}
+          </div>
+        </div>
+      </div>
+    </div>}
+  </>;
+};
+
 const Login = ({onLogin}) => {
   const [email,setEmail]=useState('');
   const [pass,setPass]=useState('');
@@ -2971,6 +3142,12 @@ const Login = ({onLogin}) => {
 
   const submit = async e => {
     e.preventDefault();
+    // HABEAS DATA: la autorización debe ser previa al ingreso (Ley 1581 de 2012, art. 9)
+    if(!HabeasSvc.aceptado()){
+      setErr('Para ingresar, lea y acepte el aviso de protección de datos personales (Ley 1581 de 2012) en la parte inferior.');
+      window.dispatchEvent(new CustomEvent('ip-habeas-abrir'));
+      return;
+    }
     // B6: Verificar bloqueo local primero (inmediato, sin red)
     if(bloqueadoHasta && Date.now() < bloqueadoHasta) {
       setErr(`Demasiados intentos fallidos. Espere ${Math.ceil((bloqueadoHasta-Date.now())/1000)}s.`);
@@ -3004,7 +3181,7 @@ const Login = ({onLogin}) => {
       registrarIntento(true);
       // A2: Persistir preferencia "mantener sesión"
       if(keepSession){ localStorage.setItem('ip_keep_session','1'); } else { localStorage.removeItem('ip_keep_session'); }
-      onLogin(u);
+      onLogin(HabeasSvc.registrar(u)); // HABEAS DATA: conserva la prueba de la autorización
     } catch(ex) {
       clearTimeout(timer);
       registrarIntento(false);
@@ -3237,6 +3414,8 @@ const Login = ({onLogin}) => {
       </>)}
       </div>
     </div>
+    {/* HABEAS DATA: aviso de protección de datos personales (Ley 1581 de 2012) */}
+    <HabeasDataAviso cfg={cfg} modo={modoAcceso}/>
   </div>;
 };
 
